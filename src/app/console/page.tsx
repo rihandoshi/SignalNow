@@ -46,7 +46,7 @@ export default function ConfigurePage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background">
+    <main className="min-h-screen flex items-center justify-center bg-white">
       <style>{`
         @keyframes fadeOutDown {
           from {
@@ -76,29 +76,33 @@ export default function ConfigurePage() {
       `}</style>
 
       {!isScanning ? (
-        <div ref={cardRef} className="w-full max-w-md p-8 bg-white rounded-lg shadow-sm border border-gray-100">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-8 text-center">Configure Signal Parameters</h1>
+        <div ref={cardRef} className="w-full max-w-lg p-10 bg-white rounded-3xl shadow-2xl border border-gray-100">
+          <div className="text-center mb-10">
+            <div className="w-16 h-16 bg-gradient-to-br from-gray-900 to-gray-700 text-white rounded-2xl mx-auto flex items-center justify-center text-2xl font-bold shadow-lg mb-4">
+              S
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Configure Your Signal</h1>
+            <p className="text-gray-500">Set up your network parameters</p>
+          </div>
 
           <form onSubmit={handleInitialize} className="space-y-6">
-            {/* Identity Field */}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="identity" className="text-sm font-medium text-gray-700">
-                Identity
+            <div className="flex flex-col gap-3">
+              <label htmlFor="identity" className="text-sm font-semibold text-gray-700">
+                GitHub Username
               </label>
               <input
                 id="identity"
                 type="text"
-                placeholder="Your GitHub Username"
+                placeholder="Enter your username"
                 value={identity}
                 onChange={(e) => setIdentity(e.target.value)}
                 required
-                className="px-4 py-2.5 border border-gray-200 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-transparent transition-all"
+                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />
             </div>
 
-            {/* Interest Vector Field */}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="interest" className="text-sm font-medium text-gray-700">
+            <div className="flex flex-col gap-3">
+              <label htmlFor="interest" className="text-sm font-semibold text-gray-700">
                 Interest Vector
               </label>
               <input
@@ -108,13 +112,12 @@ export default function ConfigurePage() {
                 value={interestVector}
                 onChange={(e) => setInterestVector(e.target.value)}
                 required
-                className="px-4 py-2.5 border border-gray-200 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-transparent transition-all"
+                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />
             </div>
 
-            {/* Target Sector Field */}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="sector" className="text-sm font-medium text-gray-700">
+            <div className="flex flex-col gap-3">
+              <label htmlFor="sector" className="text-sm font-semibold text-gray-700">
                 Target Sector
               </label>
               <input
@@ -124,30 +127,34 @@ export default function ConfigurePage() {
                 value={targetSector}
                 onChange={(e) => setTargetSector(e.target.value)}
                 required
-                className="px-4 py-2.5 border border-gray-200 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-transparent transition-all"
+                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />
             </div>
 
-            {/* Initialize Button */}
             <button
               type="submit"
-              className="w-full mt-8 px-4 py-3 bg-black text-white font-medium rounded-md hover:bg-gray-900 active:bg-black transition-colors duration-200"
+              className="w-full mt-8 px-6 py-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 hover:shadow-xl active:scale-95 transition-all duration-200"
             >
-              INITIALIZE SCAN
+              Initialize Scan
             </button>
           </form>
         </div>
       ) : (
         <div className="progress-container w-full max-w-md px-8">
-          <div className="space-y-3">
-            <div className="text-sm text-gray-600 text-center font-medium">Scanning Signal Parameters...</div>
-            <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+          <div className="space-y-5">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-gray-900 text-white rounded-2xl mx-auto flex items-center justify-center text-xl font-bold shadow-lg mb-4">
+                S
+              </div>
+              <p className="text-lg text-gray-700 font-medium">Initializing signal scan...</p>
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden shadow-inner">
               <div
-                className="h-full bg-black rounded-full transition-all duration-300 ease-out"
+                className="h-full bg-gradient-to-r from-gray-900 to-gray-700 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${Math.min(progress, 100)}%` }}
               />
             </div>
-            <div className="text-xs text-gray-500 text-center">{Math.floor(progress)}%</div>
+            <div className="text-sm text-gray-500 text-center font-medium">{Math.floor(progress)}%</div>
           </div>
         </div>
       )}

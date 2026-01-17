@@ -102,18 +102,23 @@ export default function Dashboard() {
 
   if (!identity) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-50">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="w-16 h-16 bg-black text-white rounded-2xl mx-auto flex items-center justify-center text-3xl font-bold shadow-xl">
+      <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-white">
+        <div className="text-center space-y-8 max-w-md" style={{ animation: 'fadeIn 0.6s ease-out' }}>
+          <div
+            className="w-20 h-20 bg-gradient-to-br from-gray-900 to-gray-700 text-white rounded-3xl mx-auto flex items-center justify-center text-4xl font-bold shadow-2xl"
+            style={{ animation: 'float 3s ease-in-out infinite' }}
+          >
             S
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">SignalNow</h1>
-          <p className="text-gray-500">Connect to the high-signal network.</p>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-bold text-gray-900 tracking-tight">SignalNow</h1>
+            <p className="text-gray-500 text-lg">Connect to the high-signal network.</p>
+          </div>
           <a
             href="/console"
-            className="block w-full py-3 px-6 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            className="inline-block w-full py-4 px-8 bg-gray-900 text-white rounded-2xl font-semibold hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105 active:scale-95"
           >
-            Configure Signal
+            Get Started
           </a>
         </div>
       </main>
@@ -121,31 +126,25 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F3F4F6] flex flex-col relative overflow-hidden">
-      {/* Header */}
-      <header className="px-8 py-6 flex justify-between items-center z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center font-bold">S</div>
-          <span className="font-semibold text-gray-900">SignalNow</span>
+    <main className="min-h-screen bg-white flex flex-col">
+      <header className="px-8 py-5 flex justify-between items-center border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-gradient-to-br from-gray-900 to-gray-700 text-white rounded-xl flex items-center justify-center font-bold text-lg">S</div>
+          <span className="font-semibold text-gray-900 text-lg">SignalNow</span>
         </div>
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push('/console')}
-            className="text-sm font-medium text-gray-500 hover:text-black transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
           >
-            {identity}
+            <Settings size={16} />
+            <span>{identity}</span>
           </button>
-          <div className="w-8 h-8 rounded-full bg-gray-200" />
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-200 to-gray-300" />
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="flex-grow flex items-center justify-center p-4 relative">
-        {/* Background Blobs for specific "vibe" */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-        <div className="absolute -bottom-8 left-1/3 w-96 h-96 bg-pink-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
-
+      <div className="flex-grow flex items-center justify-center p-8">
         {profiles.length > 0 ? (
           <ProfileCard
             profile={profiles[currentIndex]}
@@ -155,32 +154,42 @@ export default function Dashboard() {
             onPrev={handlePrev}
           />
         ) : (
-          <div className="text-center z-10">
+          <div className="text-center" style={{ animation: 'fadeIn 0.3s ease-out' }}>
             {analyzing ? (
               <div className="flex flex-col items-center gap-4">
-                <Loader2 className="animate-spin text-gray-400" size={32} />
-                <p className="text-gray-500 animate-pulse">Triangulating signal with {TARGET_POOLS[0]}...</p>
+                <Loader2 className="animate-spin text-gray-400" size={40} />
+                <p className="text-gray-500 text-lg">Analyzing connections...</p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4">
                 <p className="text-gray-500">No signals found.</p>
-                <button onClick={() => fetchMatches(identity)} className="text-blue-600 hover:underline">Retry</button>
+                <button
+                  onClick={() => fetchMatches(identity)}
+                  className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-all duration-200"
+                >
+                  Retry
+                </button>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Navigation Docks (Visual only for now) */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-white/50 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-1 shadow-sm border border-white/20">
-        {profiles.map((_, i) => (
-          <div
-            key={i}
-            className={`w-2 h-2 rounded-full transition-all ${i === currentIndex ? "bg-black w-4" : "bg-gray-400"}`}
-          />
-        ))}
-        {analyzing && <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse" />}
-      </div>
+      {profiles.length > 0 && (
+        <div className="pb-8 flex justify-center">
+          <div className="bg-gray-100 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2 shadow-sm">
+            {profiles.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentIndex(i)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  i === currentIndex ? "bg-gray-900 w-8" : "bg-gray-400 w-2 hover:bg-gray-600"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
