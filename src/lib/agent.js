@@ -1,9 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-2.0-flash-exp";
 
-const myUser = "rihandoshi";
 const myGoal = "Find active developers working on open-source web development tools to collaborate with.";
 function safeJsonParse(text) {
     try {
@@ -30,13 +29,13 @@ async function fetchGitHubEvents(username) {
     return res;
 }
 
-export async function analyzeProfile(username) {
-    console.log(`⚡ Agentic Pipeline: Connecting ${myUser} -> ${username}`);
+export async function analyzeProfile(sourceUser, targetUser) {
+    console.log(`⚡ Agentic Pipeline: Connecting ${sourceUser} -> ${targetUser}`);
 
     /// Get user activity data. Both ours and the target
     const [targetEvents, myEvents] = await Promise.all([
-        fetchGitHubEvents(username),
-        fetchGitHubEvents(myUser)
+        fetchGitHubEvents(targetUser),
+        fetchGitHubEvents(sourceUser)
     ]);
 
     // Clean the data slightly for the prompts

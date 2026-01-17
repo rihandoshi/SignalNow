@@ -29,6 +29,11 @@ export default function ConfigurePage() {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval)
+          // Save identity to LocalStorage so Dashboard can pick it up
+          localStorage.setItem("signal_identity", identity)
+          if (interestVector) localStorage.setItem("signal_interest", interestVector)
+          if (targetSector) localStorage.setItem("signal_sector", targetSector)
+
           // Redirect after completion
           setTimeout(() => {
             window.location.href = "/"
