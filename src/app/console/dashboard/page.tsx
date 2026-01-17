@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { List, Grid3x3 } from "lucide-react"
+import { ProfileCard } from "@/app/components/profile-card";
 
 // Sample user data
 const sampleUsers = [
@@ -14,8 +15,53 @@ const sampleUsers = [
   { id: 6, name: "Taylor Brown", email: "taylor@nexus.dev", status: "Active", joined: "2024-03-12" },
 ]
 
+// Sample profile data
+const sampleProfiles = [
+  {
+    id: 1,
+    name: "Sarah Mitchell",
+    role: "Senior Engineer @ Vercel",
+    avatar: "SM",
+    isOnline: true,
+    matchReason: "You both starred styled-components",
+    readinessScore: 85,
+    icebreaker:
+      "const collaborate = () => {\n  const interests = ['typescript', 'design systems'];\n  return buildTogether(interests);\n};",
+  },
+  {
+    id: 2,
+    name: "Alex Chen",
+    role: "DevOps @ Stripe",
+    avatar: "AC",
+    isOnline: true,
+    matchReason: "Shared expertise in Web3 infrastructure",
+    readinessScore: 92,
+    icebreaker:
+      "export async function startConversation() {\n  const synergy = await findCommonGround();\n  return synergy.potential;\n}",
+  },
+  {
+    id: 3,
+    name: "Jordan Lee",
+    role: "AI/ML Researcher",
+    avatar: "JL",
+    isOnline: false,
+    matchReason: "Both active contributors to GenAI OSS",
+    readinessScore: 78,
+    icebreaker: "function networkEffect(nodes) {\n  return nodes.map(connect)\n    .reduce(collaborate);\n}",
+  },
+]
+
 export default function DashboardPage() {
   const [viewMode, setViewMode] = useState<"list" | "focus">("list")
+  const [currentProfileIndex, setCurrentProfileIndex] = useState(0)
+
+  const handleDismiss = () => {
+    setCurrentProfileIndex((prev) => (prev + 1) % sampleProfiles.length)
+  }
+
+  const handleConnect = () => {
+    setCurrentProfileIndex((prev) => (prev + 1) % sampleProfiles.length)
+  }
 
   return (
     <main className="min-h-screen bg-white">
@@ -119,14 +165,14 @@ export default function DashboardPage() {
               transition={{ duration: 0.3 }}
               className="flex items-center justify-center min-h-96"
             >
-              {/* Focus View: Empty Container */}
-              <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-lg bg-gray-200"></div>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Focus View</h3>
-                <p className="text-sm text-gray-500">Select a signal to focus on its details</p>
-              </div>
+              <AnimatePresence mode="wait">
+                <ProfileCard
+                  key={sampleProfiles[currentProfileIndex].id}
+                  profile={sampleProfiles[currentProfileIndex]}
+                  onDismiss={handleDismiss}
+                  onConnect={handleConnect}
+                />
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
