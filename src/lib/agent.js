@@ -115,6 +115,14 @@ export async function analyzeProfile(username) {
     });
     const vibe = safeJsonParse(researcherResult.text);
 
+    if (!vibe || vibe.activity_pattern === "idle") {
+        return {
+            status: "WAIT",
+            reason: "No recent activity detected",
+            next_step: "Monitor for new events"
+        };
+    }
+
 
     // --- AGENT 2: THE STRATEGIST ---
     // Goal: Compare Target's vibe with MY raw activity to find the bridge
@@ -150,13 +158,13 @@ export async function analyzeProfile(username) {
         "timing_analysis": "Contextual comment on their activity window",
         "bridge": "One specific shared topic, repo, or technical overlap",
         "the_hook": "The specific technical detail to mention (e.g. 'Their recent migration to Bun')",
-        "reasoning": "Internal logic for why this score was given"
+        "reasoning": "Internal logic for why this score was given",
         "confidence": "low | medium | high"
         }
 
         RULES:
         - Readiness must depend heavily on recency of activity
-        - If their last activity was > 48h ago, score cannot exceed 60.
+        - If their last activity was > 1 week ago, score cannot exceed 70.
         - If they are working on a repo you have also contributed to or starred, score is 90+.
         - Avoid generic praise. Focus on 'Work-in-Progress' context.
         - Do NOT inflate scores without evidence
@@ -175,10 +183,20 @@ export async function analyzeProfile(username) {
         config: { responseMimeType: "application/json" }
     });
     const strategy = JSON.parse(strategistResult.text);
+    let decision;
+    if (strategy.readiness_score >= 70) decision = "ENGAGE";
+    else if (strategy.readiness_score >= 50) decision = "WAIT";
+    else decision = "IGNORE";
 
-    // --- AGENT 3: THE GHOSTWRITER ---
-    // Goal: Generate the final peer-to-peer message
-    const ghostwriterPrompt = `
+    // Initialize default values
+    let icebreaker = null;
+    let ghostwriterTrace = "Decision made based on readiness score.";
+
+    // Only generate message if decision is ENGAGE
+    if (decision === "ENGAGE") {
+        // --- AGENT 3: THE GHOSTWRITER ---
+        // Goal: Generate the final peer-to-peer message
+        const ghostwriterPrompt = `
         You are Agent 3: The Ghostwriter.
 
         You write short, casual, human DMs between developers.
@@ -203,23 +221,37 @@ export async function analyzeProfile(username) {
         Plain text only.
 
     `;
-    const ghostwriterResult = await ai.models.generateContent({
-        model: MODEL_NAME,
-        contents: ghostwriterPrompt
-    });
-    const dm = ghostwriterResult.text
-        .replace(/```/g, "")
-        .trim();
+        const ghostwriterResult = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: [{
+                role: "user",
+                parts: [{ text: ghostwriterPrompt }]
+            }]
 
+        });
+        icebreaker = ghostwriterResult.text
+            .replace(/```/g, "")
+            .trim();
+        ghostwriterTrace = "Optimizing message for human response... Ready.";
+    }
 
+    // Return consistent output structure
     return {
-        score: strategy.score || strategy.ReadinessScore || strategy.readiness_score,
-        focus: vibe.TechnicalFocus || vibe.focus,
-        icebreaker: dm,
+        status: decision,
+        score: strategy.readiness_score,
+        readinessLevel: strategy.readiness_level,
+        reason: strategy.reasoning,
+        bridge: strategy.bridge,
+        focus: vibe.primary_technologies || vibe.focus,
+        icebreaker: icebreaker,
+        nextStep: decision === "ENGAGE"
+            ? "Send message now"
+            : "Wait for activity spike",
+
         trace: {
             researcher: vibe,
             strategist: strategy,
-            ghostwriter: "Optimizing message for human response... Ready."
+            ghostwriter: ghostwriterTrace
         }
     };
 }
