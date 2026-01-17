@@ -4,6 +4,20 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL_NAME = "gemini-2.5-flash";
 
 const myUser = "rihandoshi";
+const myGoal = "Find active developers working on open-source web development tools to collaborate with.";
+function safeJsonParse(text) {
+    try {
+        return JSON.parse(text);
+    } catch {
+        // Remove ```json ... ``` wrappers
+        const cleaned = text
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
+        return JSON.parse(cleaned);
+    }
+}
 
 async function fetchGitHubEvents(username) {
     const response = await fetch(`https://api.github.com/users/${username}/events`, {
@@ -30,13 +44,21 @@ export async function analyzeProfile(username) {
         type: e.type,
         repo: e.repo.name,
         msg: e.payload.commits ? e.payload.commits[0]?.message : "Action: " + e.type,
-        time: e.created_at
+        time: e.created_at,
+        time_ago: getRelativeTime(e.created_at)
     }));
 
     const myActivity = myEvents.slice(0, 10).map(e => ({
         repo: e.repo.name,
         msg: e.payload.commits ? e.payload.commits[0]?.message : e.type
     }));
+
+    function getRelativeTime(timestamp) {
+        const minutes = Math.floor((new Date() - new Date(timestamp)) / 60000);
+        if (minutes < 60) return `${minutes} minutes ago`;
+        if (minutes < 1440) return `${Math.floor(minutes / 60)} hours ago`;
+        return `${Math.floor(minutes / 1440)} days ago`;
+    }
 
     // --- AGENT 1: THE RESEARCHER ---
     // Goal: Clean noise and identify Target's vibe
@@ -82,20 +104,17 @@ export async function analyzeProfile(username) {
 
     const researcherResult = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: [
-            {
-                role: "user",
-                parts: [
-                    { text: researcherPrompt },
-                    { text: "\n\nDATA:\n" + JSON.stringify(targetActivity, null, 2) }
-                ]
-            }
-        ],
-
-        Data: `${JSON.stringify(targetActivity)}`,
-        config: { responseMimeType: "application/json" }
+        contents: [{
+            role: "user",
+            parts: [{ text: researcherPrompt + "\n\nDATA:\n" + JSON.stringify(targetActivity) }]
+        }],
+        generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.2 // Lower temperature for factual research
+        }
     });
-    const vibe = JSON.parse(researcherResult.text);
+    const vibe = safeJsonParse(researcherResult.text);
+
 
     // --- AGENT 2: THE STRATEGIST ---
     // Goal: Compare Target's vibe with MY raw activity to find the bridge
@@ -106,26 +125,40 @@ export async function analyzeProfile(username) {
         1. Whether this is a good moment to contact the target
         2. Why (based on evidence)
         3. What the strongest connection point is
+        4. Your job is to find the "Technical Friction Point" or "Shared Momentum" between two developers.
 
         INPUT:
         Target profile:
         ${JSON.stringify(vibe, null, 2)}
+        Current Time: ${new Date().toISOString()}
+
 
         My recent activity:
         ${JSON.stringify(myActivity, null, 2)}
+        - User's Goal: ${myGoal}
+
+        Calculate a Readiness Score (0-100) based on:
+        1. TIMING (40%): Are they active RIGHT NOW? (Current time vs last event).
+        2. STACK OVERLAP (30%): Do they use the same niche tools (not just "JS")?
+        3. MOMENTUM (30%): Are they building something new or just fixing typos?
 
         OUTPUT FORMAT (STRICT JSON):
 
         {
         "readiness_score": 0-100,
         "readiness_level": "low | medium | high",
-        "timing_reason": "One concrete reason based on activity timing",
+        "timing_analysis": "Contextual comment on their activity window",
         "bridge": "One specific shared topic, repo, or technical overlap",
+        "the_hook": "The specific technical detail to mention (e.g. 'Their recent migration to Bun')",
+        "reasoning": "Internal logic for why this score was given"
         "confidence": "low | medium | high"
         }
 
         RULES:
         - Readiness must depend heavily on recency of activity
+        - If their last activity was > 48h ago, score cannot exceed 60.
+        - If they are working on a repo you have also contributed to or starred, score is 90+.
+        - Avoid generic praise. Focus on 'Work-in-Progress' context.
         - Do NOT inflate scores without evidence
         - Bridge must be concrete (repo, tool, stack, problem)
         - Avoid vague phrases like 'shared interests'
@@ -134,7 +167,11 @@ export async function analyzeProfile(username) {
         `;
     const strategistResult = await ai.models.generateContent({
         model: MODEL_NAME,
-        contents: strategistPrompt,
+        contents: [{
+            role: "user",
+            parts: [{ text: strategistPrompt }]
+        }],
+
         config: { responseMimeType: "application/json" }
     });
     const strategy = JSON.parse(strategistResult.text);
@@ -170,7 +207,10 @@ export async function analyzeProfile(username) {
         model: MODEL_NAME,
         contents: ghostwriterPrompt
     });
-    const dm = ghostwriterResult.text;
+    const dm = ghostwriterResult.text
+        .replace(/```/g, "")
+        .trim();
+
 
     return {
         score: strategy.score || strategy.ReadinessScore || strategy.readiness_score,
