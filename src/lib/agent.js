@@ -97,6 +97,29 @@ function safeJsonParse(text) {
 }
 
 async function fetchGitHubEvents(username) {
+    // Check if it's a repo (contains /)
+    if (username.includes('/')) {
+        // For repos, fetch commit activity instead
+        const response = await fetch(`https://api.github.com/repos/${username}/commits?per_page=30`, {
+            headers: { 'User-Agent': 'Signal-Now-Hackathon' },
+            cache: 'no-store'
+        });
+        if (!response.ok) throw new Error(`Repository ${username} not found`);
+        const commits = await response.json();
+
+        // Convert commits to event-like format
+        const events = commits.slice(0, 30).map(commit => ({
+            type: 'PushEvent',
+            repo: { name: username },
+            created_at: commit.commit.author.date,
+            payload: { commits: [commit] }
+        }));
+
+        console.log(`Events for repo ${username} are: ${events.length} commits`);
+        return events;
+    }
+
+    // For users/orgs, fetch events normally
     const response = await fetch(`https://api.github.com/users/${username}/events`, {
         headers: { 'User-Agent': 'Signal-Now-Hackathon' },
         cache: 'no-store'
