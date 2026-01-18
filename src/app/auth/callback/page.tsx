@@ -23,15 +23,19 @@ export default function AuthCallback() {
                     // Store token for API calls
                     localStorage.setItem('authToken', data.session.access_token);
 
-                    // Check if user has completed onboarding
-                    const userMetadata = data.session.user.user_metadata;
-                    const githubUsername = userMetadata?.user_name || userMetadata?.preferred_username;
+                    // Check if user has completed onboarding by checking profiles table
+                    // We check if 'goal' (or github_username) is set, because the row might exist with NULLs due to triggers.
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('goal')
+                        .eq('id', data.session.user.id)
+                        .single();
 
-                    if (githubUsername) {
-                        // User has GitHub username, redirect to dashboard
+                    if (profile && profile.goal) {
+                        // User has a profile AND has completed onboarding (goal is set)
                         router.push('/');
                     } else {
-                        // Need to complete onboarding
+                        // No profile found, redirect to console for onboarding
                         router.push('/console');
                     }
                 } else {

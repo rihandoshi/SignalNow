@@ -455,25 +455,34 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
       )}
 
       {/* Focus Areas */}
-      {person.focus && person.focus.length > 0 && (
-        <div className="mb-4">
-          <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
-            Focus Areas
+      {(() => {
+        // Normalize focus to array (it might be a string from the LLM)
+        const focusAreas = Array.isArray(person?.focus)
+          ? person.focus
+          : (typeof person?.focus === 'string' ? person.focus.split(',').map(s => s.trim()) : []);
+
+        if (focusAreas.length === 0) return null;
+
+        return (
+          <div className="mb-4">
+            <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+              Focus Areas
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {focusAreas.slice(0, 4).map((tech, index) => (
+                <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-sm rounded font-medium">
+                  {tech}
+                </span>
+              ))}
+              {focusAreas.length > 4 && (
+                <span className="px-2 py-1 bg-gray-100 text-gray-500 text-sm rounded">
+                  +{focusAreas.length - 4} more
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {person.focus.slice(0, 4).map((tech, index) => (
-              <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-sm rounded font-medium">
-                {tech}
-              </span>
-            ))}
-            {person.focus.length > 4 && (
-              <span className="px-2 py-1 bg-gray-100 text-gray-500 text-sm rounded">
-                +{person.focus.length - 4} more
-              </span>
-            )}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Reasoning */}
       <div className="mb-6">
@@ -581,18 +590,26 @@ function PersonDetailModal({ person, onClose, onConnect }) {
           )}
 
           {/* Focus Areas */}
-          {person.focus && person.focus.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Focus Areas</h3>
-              <div className="flex flex-wrap gap-2">
-                {person.focus.map((tech, index) => (
-                  <span key={index} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium">
-                    {tech}
-                  </span>
-                ))}
+          {(() => {
+            const focusAreas = Array.isArray(person?.focus)
+              ? person.focus
+              : (typeof person?.focus === 'string' ? person.focus.split(',').map(s => s.trim()) : []);
+
+            if (focusAreas.length === 0) return null;
+
+            return (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Focus Areas</h3>
+                <div className="flex flex-wrap gap-2">
+                  {focusAreas.map((tech, index) => (
+                    <span key={index} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium">
+                      {tech}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Right Column */}

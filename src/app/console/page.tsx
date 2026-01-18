@@ -50,13 +50,18 @@ export default function ConfigurePage() {
 
     // Save to API
     try {
+      // Get session token for API auth
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       // Extract github username from metadata if available
       const github_username = user.user_metadata?.user_name || user.user_metadata?.preferred_username;
 
-      await fetch('/api/onboard', {
+      const response = await fetch('/api/onboard', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           userId: user.id,
@@ -67,8 +72,20 @@ export default function ConfigurePage() {
           people
         })
       });
-    } catch (error) {
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save configuration');
+      }
+
+    } catch (error: any) {
       console.error("Onboarding error", error);
+      alert(`Error saving configuration: ${error.message}`);
+      setIsScanning(false); // Stop scanning animation on error
+      if (cardRef.current) {
+        cardRef.current.style.animation = ""; // Reset animation
+      }
+      return;
     }
 
     // Simulate progress
