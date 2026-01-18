@@ -216,6 +216,13 @@ export default function Dashboard() {
                 )}
                 <span className="font-medium">{analyzing ? 'Analyzing...' : 'Analyze All'}</span>
               </button>
+              <button
+                onClick={() => router.push('/console')}
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors font-medium bg-white"
+              >
+                <Settings className="h-4 w-4" />
+                <span>Console</span>
+              </button>
               <LogoutButton />
             </div>
           </div>
@@ -399,6 +406,13 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
     )
   }
 
+  // Helper to safely render any value
+  const safeRender = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return val;
+  }
+
   const getStatusColor = (decision) => {
     switch (decision) {
       case 'ENGAGE': return 'text-green-600 bg-green-50 border-green-200'
@@ -430,23 +444,23 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
         <div className="flex items-center space-x-4">
           <img
             src={`https://github.com/${person.target}.png`}
-            alt={person.target}
+            alt={safeRender(person.target)}
             className="w-16 h-16 rounded-full border-2 border-gray-200"
             onError={(e) => {
               e.target.src = `https://ui-avatars.com/api/?name=${person.target}&background=f3f4f6&color=374151&size=64`
             }}
           />
           <div>
-            <h3 className="text-xl font-bold text-gray-900">{person.target}</h3>
+            <h3 className="text-xl font-bold text-gray-900">{safeRender(person.target)}</h3>
             <div className="flex items-center space-x-2 mt-1">
               <Github className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-500 capitalize">{person.type}</span>
+              <span className="text-sm text-gray-500">{safeRender(person.source || person.type)}</span>
             </div>
           </div>
         </div>
         <div className="text-right">
           <div className={`text-3xl font-bold ${getScoreColor(person.readiness_score)}`}>
-            {person.readiness_score}
+            {safeRender(person.readiness_score)}
           </div>
           <div className="text-xs text-gray-500 uppercase tracking-wide">
             Readiness Score
@@ -458,7 +472,7 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
       <div className="mb-4">
         <div className={`inline-flex items-center space-x-2 px-3 py-2 rounded-lg border font-medium ${getStatusColor(person.decision)}`}>
           {getStatusIcon(person.decision)}
-          <span>{person.decision}</span>
+          <span>{safeRender(person.decision)}</span>
         </div>
       </div>
 
@@ -468,7 +482,9 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
           <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">
             Connection Point
           </div>
-          <p className="text-blue-800 font-medium">{person.bridge}</p>
+          <p className="text-blue-800 font-medium">
+            {typeof person.bridge === 'string' ? person.bridge : JSON.stringify(person.bridge)}
+          </p>
         </div>
       )}
 
@@ -489,7 +505,7 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
             <div className="flex flex-wrap gap-2">
               {focusAreas.slice(0, 4).map((tech, index) => (
                 <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-sm rounded font-medium">
-                  {tech}
+                  {typeof tech === 'string' ? tech : JSON.stringify(tech)}
                 </span>
               ))}
               {focusAreas.length > 4 && (
@@ -504,7 +520,9 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
 
       {/* Reasoning */}
       <div className="mb-6">
-        <p className="text-gray-700 leading-relaxed line-clamp-3">{person.reasoning}</p>
+        <p className="text-gray-700 leading-relaxed line-clamp-3">
+          {typeof person.reasoning === 'string' ? person.reasoning : JSON.stringify(person.reasoning)}
+        </p>
       </div>
 
       {/* Action Buttons */}
@@ -544,6 +562,13 @@ function PersonDetailModal({ person, onClose, onConnect }) {
     }
   }
 
+  // Helper to safely render any value
+  const safeRender = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return val;
+  }
+
   return (
     <div className="flex flex-col h-[85vh]">
       {/* Premium Header with Blur */}
@@ -559,7 +584,7 @@ function PersonDetailModal({ person, onClose, onConnect }) {
             <div className="relative">
               <img
                 src={`https://github.com/${person.target}.png`}
-                alt={person.target}
+                alt={safeRender(person.target)}
                 className="w-24 h-24 rounded-2xl border-4 border-white/10 shadow-2xl"
                 onError={(e) => {
                   e.target.src = `https://ui-avatars.com/api/?name=${person.target}&background=374151&color=fff&size=96`
@@ -567,16 +592,16 @@ function PersonDetailModal({ person, onClose, onConnect }) {
               />
               <div className={`absolute -bottom-2 -right-2 px-3 py-1 rounded-full text-xs font-bold border-2 border-gray-900 ${person.decision === 'ENGAGE' ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
                 }`}>
-                {person.decision}
+                {safeRender(person.decision)}
               </div>
             </div>
 
             <div>
-              <h2 className="text-4xl font-bold mb-2 tracking-tight">{person.target}</h2>
+              <h2 className="text-4xl font-bold mb-2 tracking-tight">{safeRender(person.target)}</h2>
               <div className="flex items-center space-x-4 text-gray-300">
                 <div className="flex items-center space-x-2">
                   <Github className="h-5 w-5" />
-                  <span className="capitalize font-medium">{person.type}</span>
+                  <span className="font-medium">{safeRender(person.source || person.type)}</span>
                 </div>
                 <span>•</span>
                 <span className={`px-2 py-0.5 rounded text-sm font-medium ${researcher.activity_pattern === 'highly_active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-700 text-gray-300'
@@ -622,10 +647,16 @@ function PersonDetailModal({ person, onClose, onConnect }) {
                 <p className="text-2xl font-medium text-gray-900 leading-snug">
                   "{strategist.the_hook}"
                 </p>
-                <div className="mt-4 flex items-center space-x-4 text-sm text-gray-500">
+                <div className="mt-4 flex flex-col space-y-2 text-sm text-gray-500">
+                  {person.context && (
+                    <div className="flex items-start">
+                      <span className="font-semibold mr-2 text-gray-700 min-w-fit">Context:</span>
+                      <span className="italic">{safeRender(person.context)}</span>
+                    </div>
+                  )}
                   {strategist.bridge && (
                     <div className="flex items-center">
-                      <span className="font-semibold mr-2 text-gray-700">Bridge:</span> {strategist.bridge}
+                      <span className="font-semibold mr-2 text-gray-700">Bridge:</span> {safeRender(strategist.bridge)}
                     </div>
                   )}
                 </div>
@@ -642,7 +673,7 @@ function PersonDetailModal({ person, onClose, onConnect }) {
                 <div className="mb-6">
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Recent Cycle</h4>
                   <p className="text-gray-700 italic border-l-2 border-gray-300 pl-4">
-                    {researcher.recent_activity_summary}
+                    {safeRender(researcher.recent_activity_summary)}
                   </p>
                 </div>
               )}
@@ -654,7 +685,7 @@ function PersonDetailModal({ person, onClose, onConnect }) {
                     {researcher.notable_signals.map((signal, idx) => (
                       <div key={idx} className="flex items-start space-x-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
                         <span className="text-blue-500 mt-0.5">•</span>
-                        <span>{signal}</span>
+                        <span>{safeRender(signal)}</span>
                       </div>
                     ))}
                   </div>
@@ -674,7 +705,7 @@ function PersonDetailModal({ person, onClose, onConnect }) {
                   <div className="flex flex-wrap gap-2 mb-6">
                     {focusAreas.map((tech, i) => (
                       <span key={i} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md font-medium text-sm border border-gray-200">
-                        {tech}
+                        {safeRender(tech)}
                       </span>
                     ))}
                   </div>
@@ -685,13 +716,13 @@ function PersonDetailModal({ person, onClose, onConnect }) {
                 {strategist.timing_analysis && (
                   <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100">
                     <span className="block font-semibold text-yellow-800 mb-1">Timing Analysis</span>
-                    <span className="text-yellow-900 opacity-90">{strategist.timing_analysis}</span>
+                    <span className="text-yellow-900 opacity-90">{safeRender(strategist.timing_analysis)}</span>
                   </div>
                 )}
                 {strategist.momentum_shift && (
                   <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
                     <span className="block font-semibold text-purple-800 mb-1">Momentum Shift?</span>
-                    <span className="text-purple-900 opacity-90 capitalize">{strategist.momentum_shift}</span>
+                    <span className="text-purple-900 opacity-90 capitalize">{safeRender(strategist.momentum_shift)}</span>
                   </div>
                 )}
               </div>
@@ -706,12 +737,12 @@ function PersonDetailModal({ person, onClose, onConnect }) {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-50 pointer-events-none"></div>
               <div className="relative z-10">
-                <div className="text-5xl font-black text-gray-900 mb-1">{person.readiness_score}</div>
+                <div className="text-5xl font-black text-gray-900 mb-1">{safeRender(person.readiness_score)}</div>
                 <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Readiness Score</div>
 
                 <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm ${person.readiness_score >= 70 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                   }`}>
-                  {person.readinessLevel ? person.readinessLevel.toUpperCase() : 'MEDIUM'} INTENT
+                  {person.readinessLevel ? safeRender(person.readinessLevel.toUpperCase()) : 'MEDIUM'} INTENT
                 </div>
               </div>
             </div>
@@ -726,7 +757,7 @@ function PersonDetailModal({ person, onClose, onConnect }) {
                   </h3>
 
                   <div className="bg-gray-800/50 rounded-lg p-4 mb-4 font-mono text-sm text-gray-200 leading-relaxed border border-gray-700">
-                    "{person.icebreaker}"
+                    "{safeRender(person.icebreaker)}"
                   </div>
 
                   <button
@@ -744,7 +775,7 @@ function PersonDetailModal({ person, onClose, onConnect }) {
             <div className="bg-gray-100 rounded-2xl p-6">
               <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">AI Reasoning</h4>
               <p className="text-gray-600 text-sm leading-relaxed">
-                {person.reasoning}
+                {safeRender(person.reasoning)}
               </p>
             </div>
 

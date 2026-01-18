@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL_NAME = "gemini-2.5-flash";
+const MODEL_NAME = "gemini-2.5-flash-lite";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -214,24 +214,26 @@ async function runResearcher(targetActivity) {
     return safeJsonParse(researcherResult.text);
 }
 
-async function runStrategist(vibe, myActivity, myGoal, previousState) {
+async function runStrategist(vibe, myActivity, myGoal, previousState, sourceContext) {
     const strategistPrompt = `
         You are Agent 2: The Strategist.
 
         Your job is to decide:
-        1. Whether this is a good moment to contact the target
-        2. Why (based on evidence)
-        3. What the strongest connection point is
-        4. Your job is to find the "Technical Friction Point" or "Shared Momentum" between two developers.
+        1. Whether this is a good moment to contact this developer.
+        2. CRITICAL: Does their recent work ALIGN with the User's Goal?
+        3. What the strongest connection point is.
 
         INPUT:
         Target profile:
         ${JSON.stringify(vibe, null, 2)}
+        Target Source: ${sourceContext || "Direct Watchlist"}
+        
         Current Time: ${new Date().toISOString()}
 
+        My User's Goal: "${myGoal}"
+        
         My recent activity:
         ${JSON.stringify(myActivity, null, 2)}
-        - User's Goal: ${myGoal}
 
         ${previousState ? `PREVIOUS ANALYSIS:
         - Last readiness score: ${previousState.last_readiness_score}
@@ -240,9 +242,9 @@ async function runStrategist(vibe, myActivity, myGoal, previousState) {
         - Last bridge: ${previousState.last_bridge}` : 'No previous analysis available (first check).'}
 
         Calculate a Readiness Score (0-100) based on:
-        1. TIMING (40%): Are they active RIGHT NOW? (Current time vs last event).
-        2. STACK OVERLAP (30%): Do they use the same niche tools (not just "JS")?
-        3. MOMENTUM (30%): Are they building something new or just fixing typos?
+        1. GOAL ALIGNMENT (50%): Does their work relate to "${myGoal}"? If goal is "Find AI engineers" and they are doing CSS, score MUST be low (<40).
+        2. TIMING (30%): Are they active RIGHT NOW?
+        3. MOMENTUM (20%): Are they building something new?
 
         OUTPUT FORMAT (STRICT JSON):
 
@@ -252,21 +254,17 @@ async function runStrategist(vibe, myActivity, myGoal, previousState) {
         "timing_analysis": "Contextual comment on their activity window",
         "bridge": "One specific shared topic, repo, or technical overlap",
         "the_hook": "The specific technical detail to mention (e.g. 'Their recent migration to Bun')",
-        "reasoning": "Internal logic for why this score was given",
+        "reasoning": "Explain why they fit (or don't fit) the User's Goal.",
         "confidence": "low | medium | high",
         "score_delta": "Compared to previous (if available): 'increased | decreased | stable'",
         "momentum_shift": "Did activity patterns change meaningfully? 'yes | no'"
         }
 
         RULES:
-        - Readiness must depend heavily on recency of activity
-        - If their last activity was > 1 week ago, score cannot exceed 70.
-        - If they are working on a repo you have also contributed to or starred, score is 90+.
-        - Avoid generic praise. Focus on 'Work-in-Progress' context.
-        - Do NOT inflate scores without evidence
-        - Bridge must be concrete (repo, tool, stack, problem)
-        - Avoid vague phrases like 'shared interests'
-        - If no good bridge exists, say so explicitly
+        - **PRIMARY FILTER**: If they are Active but IRRELEVANT to the Goal, score them LOW (below 50) and decision IGNORE.
+        - If they are working on the Source Repo (${sourceContext}) in a way that matches the goal, boost the score.
+        - Avoid generic praise. Focus on specific commits/actions.
+        - If information is unclear, say 'insufficient data'
         ${previousState ? `- Consider momentum: Has score changed significantly (±5 or more)?` : ''}
 
         `;
@@ -283,45 +281,10 @@ async function runStrategist(vibe, myActivity, myGoal, previousState) {
     return safeJsonParse(strategistResult.text);
 }
 
-async function runGhostwriter(strategy) {
-    const ghostwriterPrompt = `
-        You are Agent 3: The Ghostwriter.
+// ... runGhostwriter ...
 
-        You write short, casual, human DMs between developers.
-
-        INPUT:
-        ${JSON.stringify(strategy, null, 2)}
-
-        RULES:
-        - Max 2 sentences
-        - No corporate language
-        - No buzzwords
-        - No emojis
-        - No greetings like "Hope you're doing well"
-        - Can reference something specific they have worked on or shown interest in or just some bridge in general.
-        - Must sound like a real person, not a pitch
-
-        STYLE:
-        Casual, curious, low-pressure.
-        Like a smart dev reaching out to another smart dev.
-
-        OUTPUT:
-        Plain text only.
-
-    `;
-    const ghostwriterResult = await ai.models.generateContent({
-        model: MODEL_NAME,
-        contents: [{
-            role: "user",
-            parts: [{ text: ghostwriterPrompt }]
-        }]
-    });
-    return ghostwriterResult.text
-        .replace(/```/g, "")
-        .trim();
-}
-
-function decideStatus(strategy, previousState) {
+async function decideStatus(strategy, previousState) {
+    // ... same logic ...
     const score = strategy.readiness_score;
     const prevScore = previousState?.last_readiness_score || 0;
     const scoreDelta = Math.abs(score - prevScore);
@@ -338,21 +301,29 @@ function decideStatus(strategy, previousState) {
         return "NO_CHANGE";
     }
 
-    if (score >= 50) {
+    if (score >= 40) { // Lowered wait threshold slightly
         return "WAIT";
     }
 
     return "IGNORE";
 }
 
-export async function analyzeProfile(userId, targetUser, myGoal = "Find active developers working on open-source projects to collaborate with.") {
+export async function analyzeProfile(userId, targetUser, source = "Direct", context = "", myGoal = "Find active developers working on open-source projects to collaborate with.") {
     // Fetch the user's GitHub username from profiles table
+    // ...
+    // Note: myGoal is passed in, but we need to fetch the REAL goal from the database if not provided correctly
+    // Actually, let's fetch the real goal from the profile to be sure
+    const { data: profile } = await supabase.from('profiles').select('goal').eq('id', userId).single();
+    if (profile && profile.goal) {
+        myGoal = profile.goal;
+    }
+
     const sourceUserGitHub = await getUserGitHubUsername(userId);
     if (!sourceUserGitHub) {
         throw new Error("User GitHub username not found in profile");
     }
 
-    console.log(`⚡ Agentic Pipeline: Connecting ${sourceUserGitHub} -> ${targetUser}`);
+    console.log(`⚡ Agentic Pipeline: Connecting ${sourceUserGitHub} -> ${targetUser} (via ${source})`);
 
     const [targetEvents, myEvents] = await Promise.all([
         fetchGitHubEvents(targetUser),
@@ -370,7 +341,9 @@ export async function analyzeProfile(userId, targetUser, myGoal = "Find active d
             readinessLevel: previousState.last_readiness_level || "medium",
             reasoning: previousState.last_reason,
             bridge: previousState.last_bridge,
-            focus: previousState.last_focus ? JSON.parse(previousState.last_focus) : [],
+            focus: previousState.last_focus
+                ? (typeof previousState.last_focus === 'string' ? safeJsonParse(previousState.last_focus) : previousState.last_focus)
+                : [],
             icebreaker: previousState.last_icebreaker || null,
             nextStep: previousState.last_next_step || "No changes detected. Monitoring continues.",
             trace: previousState.last_trace || { // Load the full trace from cache
@@ -427,7 +400,7 @@ export async function analyzeProfile(userId, targetUser, myGoal = "Find active d
         };
     }
 
-    const strategy = await runStrategist(vibe, myActivity, myGoal, previousState);
+    const strategy = await runStrategist(vibe, myActivity, myGoal, previousState, source + ": " + context);
     let icebreaker = null;
     let ghostwriterTrace = "Decision made based on readiness score.";
 

@@ -39,6 +39,12 @@ export default function ConfigurePage() {
       return;
     }
 
+    // Custom Validation: At least one watchlist item required
+    if (!repositories.trim() && !organizations.trim() && !people.trim()) {
+      alert("Please provide at least one entity to track (Repository, Organization, or Person).");
+      return;
+    }
+
     // Fade out card
     if (cardRef.current) {
       cardRef.current.style.animation = "fadeOutDown 0.6s ease-out forwards"
@@ -179,7 +185,6 @@ export default function ConfigurePage() {
                 placeholder="e.g. facebook, vercel, google"
                 value={organizations}
                 onChange={(e) => setOrganizations(e.target.value)}
-                required
                 className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />
             </div>
@@ -194,7 +199,6 @@ export default function ConfigurePage() {
                 placeholder="e.g. facebook/react, vercel/next.js"
                 value={repositories}
                 onChange={(e) => setRepositories(e.target.value)}
-                required
                 className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />
             </div>
@@ -209,7 +213,6 @@ export default function ConfigurePage() {
                 placeholder="e.g. torvalds, shadcn, leerob"
                 value={people}
                 onChange={(e) => setPeople(e.target.value)}
-                required
                 className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />
             </div>
