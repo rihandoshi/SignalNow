@@ -25,10 +25,10 @@ SignalNow is an intelligent networking tool that analyzes GitHub activity to hel
 3. Set up environment variables:
    Create a `.env.local` file in the root directory and add your Supabase credentials:
    ```
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_anon_key
-   GEMINI_API_KEY=your_gemini_api_key
+   NEXT_PUBLIC_SUPABASE_URL=your supabase url here
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=supabase publishable api key
+   SUPABASE_SERVICE_KEY=supabase publishable api key (again)
+   GEMINI_API_KEY=gemini api key
    ```
 
 ### Database Setup
