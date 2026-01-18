@@ -13,6 +13,8 @@ const TARGET_POOLS = [
   "swyx",     // AI Engineer
 ]
 
+import { supabase } from "@/lib/supabase-client"
+
 export default function Dashboard() {
   const router = useRouter()
   const [identity, setIdentity] = useState("")
@@ -21,16 +23,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
 
-  // Load Identity from LocalStorage (simulated persistence from Console)
+  // Check Supabase Session
   useEffect(() => {
-    // For demo, we can also check if a "identity" query param exists or just use a default
-    // In a real app, this would be in a Context or persistent store
-    const storedIdentity = localStorage.getItem("signal_identity")
-    if (storedIdentity) {
-      setIdentity(storedIdentity)
-      // Auto start matching if we have an identity
-      if (profiles.length === 0) fetchMatches(storedIdentity)
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        // Use metadata username or email as identity
+        const idPromise = user.user_metadata?.user_name || user.user_metadata?.preferred_username || user.email
+        setIdentity(idPromise)
+        if (profiles.length === 0) fetchMatches(idPromise)
+      } else {
+        setIdentity("")
+      }
     }
+    checkUser()
   }, [])
 
   const fetchMatches = async (sourceUser) => {
@@ -115,7 +121,7 @@ export default function Dashboard() {
             <p className="text-gray-500 text-lg">Connect to the high-signal network.</p>
           </div>
           <a
-            href="/console"
+            href="/auth"
             className="inline-block w-full py-4 px-8 bg-gray-900 text-white rounded-2xl font-semibold hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-105 active:scale-95"
           >
             Get Started
@@ -182,9 +188,8 @@ export default function Dashboard() {
               <button
                 key={i}
                 onClick={() => setCurrentIndex(i)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  i === currentIndex ? "bg-gray-900 w-8" : "bg-gray-400 w-2 hover:bg-gray-600"
-                }`}
+                className={`h-2 rounded-full transition-all duration-300 ${i === currentIndex ? "bg-gray-900 w-8" : "bg-gray-400 w-2 hover:bg-gray-600"
+                  }`}
               />
             ))}
           </div>
