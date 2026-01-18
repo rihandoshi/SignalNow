@@ -99,7 +99,7 @@ export default function AuthPage() {
                         .single();
 
                     if (profile && profile.goal) {
-                        router.push("/");
+                        router.push("/dashboard");
                     } else {
                         router.push("/console");
                     }
@@ -247,7 +247,7 @@ export default function AuthPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full flex items-center justify-center space-x-2 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all font-medium shadow-sm"
+                            className="w-full flex items-center justify-center space-x-2 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 disabled:opacity-50 transition-all font-medium shadow-sm"
                         >
                             {isLoading ? (
                                 <Loader2 className="h-5 w-5 animate-spin" />

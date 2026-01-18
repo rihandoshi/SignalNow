@@ -811,13 +811,58 @@ function PersonDetailModal({ person, onClose, onConnect }) {
             <div className="mt-4">
               <details className="group">
                 <summary className="flex items-center justify-between cursor-pointer p-4 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-500 uppercase tracking-widest transition-colors">
-                  <span>View Raw Trace Data</span>
+                  <span>View Trace Details</span>
                   <span className="group-open:rotate-180 transition-transform">▼</span>
                 </summary>
-                <div className="mt-2 p-4 bg-gray-900 rounded-xl overflow-x-auto">
-                  <pre className="text-xs text-green-400 font-mono leading-relaxed">
-                    {JSON.stringify(person.trace || {}, null, 2)}
-                  </pre>
+
+                <div className="mt-4 space-y-6 pl-2 border-l-2 border-gray-100 ml-2">
+                  {/* Researcher Trace */}
+                  <div>
+                    <h5 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                      Researcher Agent
+                    </h5>
+                    <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 shadow-sm">
+                      {Object.entries(person.trace?.researcher || {}).map(([key, value]) => (
+                        <div key={key} className="flex flex-col pb-3 border-b border-gray-50 last:border-0 last:pb-0">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                            {key.replace(/_/g, ' ')}
+                          </span>
+                          <div className="text-sm text-gray-700 font-medium leading-relaxed">
+                            {typeof value === 'object' ? (
+                              <div className="bg-gray-50 p-2 rounded text-xs font-mono text-gray-600">
+                                {JSON.stringify(value, null, 2)}
+                              </div>
+                            ) : value.toString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Strategist Trace */}
+                  <div>
+                    <h5 className="text-xs font-bold text-purple-600 uppercase mb-3 flex items-center">
+                      <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                      Strategist Agent
+                    </h5>
+                    <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-3 shadow-sm">
+                      {Object.entries(person.trace?.strategist || {}).map(([key, value]) => (
+                        <div key={key} className="flex flex-col pb-3 border-b border-gray-50 last:border-0 last:pb-0">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                            {key.replace(/_/g, ' ')}
+                          </span>
+                          <div className="text-sm text-gray-700 font-medium leading-relaxed">
+                            {typeof value === 'object' ? (
+                              <div className="bg-gray-50 p-2 rounded text-xs font-mono text-gray-600">
+                                {JSON.stringify(value, null, 2)}
+                              </div>
+                            ) : value.toString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </details>
             </div>
