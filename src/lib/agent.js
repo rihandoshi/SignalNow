@@ -1,14 +1,93 @@
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL_NAME = "gemini-2.0-flash-exp";
+const MODEL_NAME = "gemini-2.5-flash-lite";
 
 const myGoal = "Find active developers working on open-source web development tools to collaborate with.";
+
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.SUPABASE_SERVICE_KEY || ""
+);
+
+const CACHE_TTL_MINUTES = 30;
+
+function generateActivityHash(events) {
+    const activityString = events
+        .slice(0, 10)
+        .map(e => `${e.type}:${e.repo.name}:${e.created_at}`)
+        .join("|");
+    return crypto.createHash("sha256").update(activityString).digest("hex");
+}
+
+async function fetchTrackedProfile(sourceUser, targetUser) {
+    try {
+        const { data, error } = await supabase
+            .from("tracked_profiles")
+            .select("*")
+            .eq("source_username", sourceUser)
+            .eq("target_username", targetUser)
+            .single();
+
+        if (error && error.code !== "PGRST116") throw error;
+        return data || null;
+    } catch (error) {
+        console.error("Supabase fetch error:", error);
+        return null;
+    }
+}
+
+async function updateTrackedProfile(sourceUser, targetUser, data) {
+    try {
+        const { error } = await supabase
+            .from("tracked_profiles")
+            .upsert(
+                {
+                    source_username: sourceUser,
+                    target_username: targetUser,
+                    ...data,
+                    last_checked_at: new Date().toISOString()
+                },
+                { onConflict: ["source_username", "target_username"] }
+            );
+        if (error) throw error;
+    } catch (error) {
+        console.error("Supabase update error:", error);
+    }
+}
+
+async function insertAnalysisHistory(trackedProfileId, analysisData) {
+    try {
+        const { error } = await supabase
+            .from("analysis_history")
+            .insert({
+                tracked_profile_id: trackedProfileId,
+                timestamp: new Date().toISOString(),
+                readiness_score: analysisData.readiness_score,
+                decision: analysisData.decision,
+                reasoning: analysisData.reasoning,
+                bridge: analysisData.bridge,
+                raw_trace_json: analysisData.trace
+            });
+        if (error) throw error;
+    } catch (error) {
+        console.error("Supabase history insert error:", error);
+    }
+}
+
+function isCacheValid(lastCheckedAt) {
+    if (!lastCheckedAt) return false;
+    const lastCheckTime = new Date(lastCheckedAt);
+    const minutesAgo = (new Date() - lastCheckTime) / (1000 * 60);
+    return minutesAgo < CACHE_TTL_MINUTES;
+}
+
 function safeJsonParse(text) {
     try {
         return JSON.parse(text);
     } catch {
-        // Remove ```json ... ``` wrappers
         const cleaned = text
             .replace(/```json/g, "")
             .replace(/```/g, "")
@@ -29,39 +108,14 @@ async function fetchGitHubEvents(username) {
     return res;
 }
 
-export async function analyzeProfile(sourceUser, targetUser) {
-    console.log(`⚡ Agentic Pipeline: Connecting ${sourceUser} -> ${targetUser}`);
+function getRelativeTime(timestamp) {
+    const minutes = Math.floor((new Date() - new Date(timestamp)) / 60000);
+    if (minutes < 60) return `${minutes} minutes ago`;
+    if (minutes < 1440) return `${Math.floor(minutes / 60)} hours ago`;
+    return `${Math.floor(minutes / 1440)} days ago`;
+}
 
-    /// Get user activity data. Both ours and the target
-    const [targetEvents, myEvents] = await Promise.all([
-        fetchGitHubEvents(targetUser),
-        fetchGitHubEvents(sourceUser)
-    ]);
-
-    // Clean the data slightly for the prompts
-    const targetActivity = targetEvents.slice(0, 15).map(e => ({
-        type: e.type,
-        repo: e.repo.name,
-        msg: e.payload.commits ? e.payload.commits[0]?.message : "Action: " + e.type,
-        time: e.created_at,
-        time_ago: getRelativeTime(e.created_at)
-    }));
-
-    const myActivity = myEvents.slice(0, 10).map(e => ({
-        repo: e.repo.name,
-        msg: e.payload.commits ? e.payload.commits[0]?.message : e.type
-    }));
-
-    function getRelativeTime(timestamp) {
-        const minutes = Math.floor((new Date() - new Date(timestamp)) / 60000);
-        if (minutes < 60) return `${minutes} minutes ago`;
-        if (minutes < 1440) return `${Math.floor(minutes / 60)} hours ago`;
-        return `${Math.floor(minutes / 1440)} days ago`;
-    }
-
-    // --- AGENT 1: THE RESEARCHER ---
-    // Goal: Clean noise and identify Target's vibe
-
+async function runResearcher(targetActivity) {
     const researcherPrompt = `You are Agent 1: The Researcher.
 
         Your job is to analyze raw GitHub activity and extract factual, evidence-based signals.
@@ -109,22 +163,13 @@ export async function analyzeProfile(sourceUser, targetUser) {
         }],
         generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.2 // Lower temperature for factual research
+            temperature: 0.2
         }
     });
-    const vibe = safeJsonParse(researcherResult.text);
+    return safeJsonParse(researcherResult.text);
+}
 
-    if (!vibe || vibe.activity_pattern === "idle") {
-        return {
-            status: "WAIT",
-            reason: "No recent activity detected",
-            next_step: "Monitor for new events"
-        };
-    }
-
-
-    // --- AGENT 2: THE STRATEGIST ---
-    // Goal: Compare Target's vibe with MY raw activity to find the bridge
+async function runStrategist(vibe, myActivity, previousState) {
     const strategistPrompt = `
         You are Agent 2: The Strategist.
 
@@ -139,10 +184,15 @@ export async function analyzeProfile(sourceUser, targetUser) {
         ${JSON.stringify(vibe, null, 2)}
         Current Time: ${new Date().toISOString()}
 
-
         My recent activity:
         ${JSON.stringify(myActivity, null, 2)}
         - User's Goal: ${myGoal}
+
+        ${previousState ? `PREVIOUS ANALYSIS:
+        - Last readiness score: ${previousState.last_readiness_score}
+        - Last decision: ${previousState.last_decision}
+        - Last checked: ${previousState.last_checked_at}
+        - Last bridge: ${previousState.last_bridge}` : 'No previous analysis available (first check).'}
 
         Calculate a Readiness Score (0-100) based on:
         1. TIMING (40%): Are they active RIGHT NOW? (Current time vs last event).
@@ -158,7 +208,9 @@ export async function analyzeProfile(sourceUser, targetUser) {
         "bridge": "One specific shared topic, repo, or technical overlap",
         "the_hook": "The specific technical detail to mention (e.g. 'Their recent migration to Bun')",
         "reasoning": "Internal logic for why this score was given",
-        "confidence": "low | medium | high"
+        "confidence": "low | medium | high",
+        "score_delta": "Compared to previous (if available): 'increased | decreased | stable'",
+        "momentum_shift": "Did activity patterns change meaningfully? 'yes | no'"
         }
 
         RULES:
@@ -170,6 +222,7 @@ export async function analyzeProfile(sourceUser, targetUser) {
         - Bridge must be concrete (repo, tool, stack, problem)
         - Avoid vague phrases like 'shared interests'
         - If no good bridge exists, say so explicitly
+        ${previousState ? `- Consider momentum: Has score changed significantly (±5 or more)?` : ''}
 
         `;
     const strategistResult = await ai.models.generateContent({
@@ -178,24 +231,15 @@ export async function analyzeProfile(sourceUser, targetUser) {
             role: "user",
             parts: [{ text: strategistPrompt }]
         }],
-
-        config: { responseMimeType: "application/json" }
+        generationConfig: {
+            responseMimeType: "application/json"
+        }
     });
-    const strategy = JSON.parse(strategistResult.text);
-    let decision;
-    if (strategy.readiness_score >= 70) decision = "ENGAGE";
-    else if (strategy.readiness_score >= 50) decision = "WAIT";
-    else decision = "IGNORE";
+    return safeJsonParse(strategistResult.text);
+}
 
-    // Initialize default values
-    let icebreaker = null;
-    let ghostwriterTrace = "Decision made based on readiness score.";
-
-    // Only generate message if decision is ENGAGE
-    if (decision === "ENGAGE") {
-        // --- AGENT 3: THE GHOSTWRITER ---
-        // Goal: Generate the final peer-to-peer message
-        const ghostwriterPrompt = `
+async function runGhostwriter(strategy) {
+    const ghostwriterPrompt = `
         You are Agent 3: The Ghostwriter.
 
         You write short, casual, human DMs between developers.
@@ -220,37 +264,169 @@ export async function analyzeProfile(sourceUser, targetUser) {
         Plain text only.
 
     `;
-        const ghostwriterResult = await ai.models.generateContent({
-            model: MODEL_NAME,
-            contents: [{
-                role: "user",
-                parts: [{ text: ghostwriterPrompt }]
-            }]
+    const ghostwriterResult = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{
+            role: "user",
+            parts: [{ text: ghostwriterPrompt }]
+        }]
+    });
+    return ghostwriterResult.text
+        .replace(/```/g, "")
+        .trim();
+}
 
-        });
-        icebreaker = ghostwriterResult.text
-            .replace(/```/g, "")
-            .trim();
+function decideStatus(strategy, previousState) {
+    const score = strategy.readiness_score;
+    const prevScore = previousState?.last_readiness_score || 0;
+    const scoreDelta = Math.abs(score - prevScore);
+    const prevDecision = previousState?.last_decision;
+
+    if (score >= 70) {
+        if (prevScore < 70 && score >= 70) {
+            return "ENGAGE";
+        }
+        return "ENGAGE";
+    }
+
+    if (scoreDelta < 5 && prevDecision && isCacheValid(previousState.last_checked_at)) {
+        return "NO_CHANGE";
+    }
+
+    if (score >= 50) {
+        return "WAIT";
+    }
+
+    return "IGNORE";
+}
+
+export async function analyzeProfile(sourceUser, targetUser) {
+    console.log(`⚡ Agentic Pipeline: Connecting ${sourceUser} -> ${targetUser}`);
+
+    const [targetEvents, myEvents] = await Promise.all([
+        fetchGitHubEvents(targetUser),
+        fetchGitHubEvents(sourceUser)
+    ]);
+
+    const currentActivityHash = generateActivityHash(targetEvents);
+    const previousState = await fetchTrackedProfile(sourceUser, targetUser);
+
+    if (previousState && previousState.last_activity_hash === currentActivityHash && isCacheValid(previousState.last_checked_at)) {
+        console.log(`✓ No activity change detected. Returning cached result.`);
+        return {
+            status: "NO_CHANGE",
+            readiness_score: previousState.last_readiness_score,
+            readinessLevel: previousState.last_readiness_level || "medium",
+            reason: previousState.last_reason,
+            bridge: previousState.last_bridge,
+            focus: previousState.last_focus ? JSON.parse(previousState.last_focus) : [],
+            icebreaker: null,
+            nextStep: "No changes detected. Monitoring continues.",
+            trace: {
+                cached: true,
+                cached_at: previousState.last_checked_at,
+                researcher: "Skipped (cached)",
+                strategist: "Skipped (cached)",
+                ghostwriter: "Skipped (cached)"
+            }
+        };
+    }
+
+    const targetActivity = targetEvents.slice(0, 15).map(e => ({
+        type: e.type,
+        repo: e.repo.name,
+        msg: e.payload.commits ? e.payload.commits[0]?.message : "Action: " + e.type,
+        time: e.created_at,
+        time_ago: getRelativeTime(e.created_at)
+    }));
+
+    const myActivity = myEvents.slice(0, 10).map(e => ({
+        repo: e.repo.name,
+        msg: e.payload.commits ? e.payload.commits[0]?.message : e.type
+    }));
+
+    console.log(`🔄 Activity hash changed or cache expired. Running analysis pipeline...`);
+
+    let vibe;
+    if (targetActivity.length === 0) {
+        return {
+            status: "WAIT",
+            readiness_score: 0,
+            reason: "No recent activity detected",
+            bridge: null,
+            focus: [],
+            icebreaker: null,
+            nextStep: "Monitor for new events",
+            trace: { researcher: "No activity", strategist: "Skipped", ghostwriter: "Skipped" }
+        };
+    }
+
+    vibe = await runResearcher(targetActivity);
+
+    if (!vibe || vibe.activity_pattern === "idle") {
+        return {
+            status: "WAIT",
+            readiness_score: 0,
+            reason: "No recent activity detected",
+            bridge: null,
+            focus: vibe?.primary_technologies || [],
+            icebreaker: null,
+            nextStep: "Monitor for new events",
+            trace: { researcher: vibe, strategist: "Skipped", ghostwriter: "Skipped" }
+        };
+    }
+
+    const strategy = await runStrategist(vibe, myActivity, previousState);
+    let icebreaker = null;
+    let ghostwriterTrace = "Decision made based on readiness score.";
+
+    const status = decideStatus(strategy, previousState);
+
+    if (status === "ENGAGE") {
+        icebreaker = await runGhostwriter(strategy);
         ghostwriterTrace = "Optimizing message for human response... Ready.";
     }
 
-    // Return consistent output structure
-    return {
-        status: decision,
-        score: strategy.readiness_score,
-        readinessLevel: strategy.readiness_level,
+    const analysisResult = {
+        status: status,
+        readiness_score: strategy.readiness_score,
+        readinessLevel: strategy.readiness_level || "medium",
         reason: strategy.reasoning,
         bridge: strategy.bridge,
-        focus: vibe.primary_technologies || vibe.focus,
+        focus: vibe.primary_technologies || [],
         icebreaker: icebreaker,
-        nextStep: decision === "ENGAGE"
+        nextStep: status === "ENGAGE"
             ? "Send message now"
-            : "Wait for activity spike",
-
+            : status === "WAIT"
+                ? "Wait for activity spike"
+                : "Not a good fit for outreach",
         trace: {
             researcher: vibe,
             strategist: strategy,
             ghostwriter: ghostwriterTrace
         }
     };
+
+    await updateTrackedProfile(sourceUser, targetUser, {
+        last_activity_hash: currentActivityHash,
+        last_readiness_score: strategy.readiness_score,
+        last_readiness_level: strategy.readiness_level,
+        last_decision: status,
+        last_bridge: strategy.bridge,
+        last_reason: strategy.reasoning,
+        last_focus: JSON.stringify(vibe.primary_technologies || [])
+    });
+
+    const trackedProfile = await fetchTrackedProfile(sourceUser, targetUser);
+    if (trackedProfile) {
+        await insertAnalysisHistory(trackedProfile.id, {
+            readiness_score: strategy.readiness_score,
+            decision: status,
+            reasoning: strategy.reasoning,
+            bridge: strategy.bridge,
+            trace: analysisResult.trace
+        });
+    }
+
+    return analysisResult;
 }
