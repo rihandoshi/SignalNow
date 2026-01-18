@@ -23,17 +23,33 @@ export async function verifyAuth(request) {
 
         const token = authHeader.replace('Bearer ', '');
 
-        // Decode JWT payload (Supabase tokens are properly signed)
-        const payload = decodeJWT(token);
-        if (!payload || !payload.sub) {
-            return { user: null, token: null, error: 'Invalid token' };
-        }
+        // Verify with Supabase
+        try {
+            const supabase = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL,
+                process.env.SUPABASE_SERVICE_KEY
+            );
 
-        return {
-            user: { id: payload.sub, email: payload.email },
-            token,
-            error: null
-        };
+            const { data: { user }, error } = await supabase.auth.getUser(token);
+
+            if (error || !user) {
+                throw new Error('Supabase auth failed: ' + (error?.message || 'No user'));
+            }
+
+            console.log('Successfully authenticated with Supabase:', user.id);
+            return {
+                user: { id: user.id, email: user.email },
+                token,
+                error: null
+            };
+        } catch (supabaseError) {
+            console.error('Authentication failed:', supabaseError.message);
+            return {
+                user: null,
+                token: null,
+                error: supabaseError.message
+            };
+        }
     } catch (error) {
         console.error('Auth verification error:', error);
         return { user: null, token: null, error: error.message };
@@ -42,15 +58,22 @@ export async function verifyAuth(request) {
 
 // Create a Supabase client with user's JWT token for RLS enforcement
 export function createAuthenticatedClient(token) {
-    return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-        {
-            global: {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Missing Supabase environment variables');
+    }
+
+    return createClient(supabaseUrl, supabaseKey, {
+        global: {
+            headers: {
+                Authorization: `Bearer ${token}`
             }
+        },
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false
         }
-    );
+    });
 }

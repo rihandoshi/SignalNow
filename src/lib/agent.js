@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL_NAME = "gemini-2.5-flash-lite";
+const MODEL_NAME = "gemini-2.5-flash";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -33,8 +33,8 @@ async function fetchTrackedProfile(userId, targetUser) {
         if (error && error.code !== "PGRST116") throw error;
         return data || null;
     } catch (error) {
-        console.error("Supabase fetch error:", error);
-        return null;
+        console.error("Supabase fetch error, skipping cache:", error.message);
+        return null; // No cache available, will run fresh analysis
     }
 }
 
@@ -52,8 +52,10 @@ async function updateTrackedProfile(userId, targetUser, data) {
                 { onConflict: ["user_id", "target_username"] }
             );
         if (error) throw error;
+        console.log('Successfully cached analysis result');
     } catch (error) {
-        console.error("Supabase update error:", error);
+        console.error("Supabase update error, skipping cache:", error.message);
+        // Continue without caching - analysis still works
     }
 }
 
@@ -71,8 +73,10 @@ async function insertAnalysisHistory(userId, targetUser, analysisData) {
                 raw_trace_json: analysisData.trace
             });
         if (error) throw error;
+        console.log('Successfully logged analysis to history');
     } catch (error) {
-        console.error("Supabase history insert error:", error);
+        console.error("Supabase history insert error, skipping history:", error.message);
+        // Continue without history logging - analysis still works
     }
 }
 
@@ -146,10 +150,13 @@ async function getUserGitHubUsername(userId) {
             .single();
 
         if (error) throw error;
-        return data?.github_username || null;
+        if (!data?.github_username) {
+            throw new Error("GitHub username not set in user profile");
+        }
+        return data.github_username;
     } catch (error) {
-        console.error("Failed to fetch GitHub username:", error);
-        return null;
+        console.error("Failed to fetch GitHub username:", error.message);
+        throw new Error("User GitHub username not configured. Please set it in your profile.");
     }
 }
 

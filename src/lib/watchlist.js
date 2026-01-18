@@ -19,6 +19,8 @@ export async function getWatchlist(supabase, userId) {
 
 export async function addToWatchlist(supabase, userId, targetType, targetValue) {
     try {
+        console.log('Adding to watchlist:', { userId, targetType, targetValue });
+
         const { data, error } = await supabase
             .from('user_watchlist')
             .insert({
@@ -30,14 +32,15 @@ export async function addToWatchlist(supabase, userId, targetType, targetValue) 
             .single();
 
         if (error) {
-            console.error('Add to watchlist error:', error);
-            return null;
+            console.error('Supabase error details:', error);
+            throw error;
         }
 
+        console.log('Successfully added to watchlist:', data);
         return data;
     } catch (error) {
         console.error('Add to watchlist error:', error);
-        return null;
+        throw error; // Re-throw to get better error info
     }
 }
 

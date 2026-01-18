@@ -8,13 +8,14 @@ export async function GET(request) {
 
         if (authError || !user) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: authError || 'Unauthorized' },
                 { status: 401 }
             );
         }
 
         const supabase = createAuthenticatedClient(token);
         const watchlist = await getWatchlist(supabase, user.id);
+
         return NextResponse.json({
             success: true,
             data: watchlist
@@ -22,7 +23,7 @@ export async function GET(request) {
     } catch (error) {
         console.error('Get watchlist error:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: error.message || 'Internal server error' },
             { status: 500 }
         );
     }
@@ -34,7 +35,7 @@ export async function POST(request) {
 
         if (authError || !user) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: authError || 'Unauthorized' },
                 { status: 401 }
             );
         }
@@ -57,21 +58,19 @@ export async function POST(request) {
 
         const supabase = createAuthenticatedClient(token);
         const item = await addToWatchlist(supabase, user.id, target_type, target_value);
-        if (!item) {
-            return NextResponse.json(
-                { error: 'Failed to add to watchlist' },
-                { status: 500 }
-            );
-        }
 
         return NextResponse.json({
             success: true,
             data: item
         });
     } catch (error) {
-        console.error('Add to watchlist error:', error);
+        console.error('Add to watchlist API error:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            {
+                error: 'Failed to add to watchlist',
+                details: error.message,
+                code: error.code || 'UNKNOWN_ERROR'
+            },
             { status: 500 }
         );
     }

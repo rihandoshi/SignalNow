@@ -1,0 +1,502 @@
+Signal-Now Backend API Documentation
+
+Authentication
+All endpoints require a JWT Bearer token in the Authorization header:
+Authorization: Bearer <jwt_token>
+
+The token is obtained by logging in through the Supabase auth system. Extract the `access_token` from the login response.
+
+---
+
+Base URL
+http://localhost:3000/api
+
+---
+
+1. Get User's Watchlist
+
+Endpoint: GET /watchlist
+
+Description: Retrieve all active watchlist items for the authenticated user.
+
+Headers:
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+Request:
+curl -X GET http://localhost:3000/api/watchlist \
+  -H "Authorization: Bearer <jwt_token>"
+
+Response (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "user_id": "cdfe13ef-7a9f-4333-84a4-ba6699aa74e5",
+      "target_type": "username",
+      "target_value": "torvalds",
+      "is_active": true,
+      "created_at": "2026-01-18T13:10:22.110398+00:00",
+      "updated_at": "2026-01-18T13:10:22.110398+00:00"
+    },
+    {
+      "id": 3,
+      "user_id": "cdfe13ef-7a9f-4333-84a4-ba6699aa74e5",
+      "target_type": "org",
+      "target_value": "nodejs",
+      "is_active": true,
+      "created_at": "2026-01-18T13:28:44.682704+00:00",
+      "updated_at": "2026-01-18T13:28:44.682704+00:00"
+    },
+    {
+      "id": 5,
+      "user_id": "cdfe13ef-7a9f-4333-84a4-ba6699aa74e5",
+      "target_type": "repo",
+      "target_value": "torvalds/linux",
+      "is_active": true,
+      "created_at": "2026-01-18T13:29:00.997038+00:00",
+      "updated_at": "2026-01-18T13:29:00.997038+00:00"
+    }
+  ]
+}
+
+Error Response (401 Unauthorized):
+{
+  "error": "Unauthorized"
+}
+
+---
+
+2. Add to Watchlist
+
+Endpoint: POST /watchlist
+
+Description: Add a new item (user, organization, or repository) to the watchlist.
+
+Headers:
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+Request Body:
+{
+  "target_type": "username | org | repo",
+  "target_value": "torvalds | nodejs | torvalds/linux"
+}
+
+Valid target_type values:
+- username - GitHub user (e.g., "torvalds", "gvanrossum")
+- org - GitHub organization (e.g., "nodejs", "facebook", "django")
+- repo - Repository in format "owner/repo" (e.g., "torvalds/linux", "vercel/next.js")
+
+Request Examples:
+
+Add a GitHub user:
+curl -X POST http://localhost:3000/api/watchlist \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"target_type": "username", "target_value": "torvalds"}'
+
+Add an organization:
+curl -X POST http://localhost:3000/api/watchlist \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"target_type": "org", "target_value": "nodejs"}'
+
+Add a repository:
+curl -X POST http://localhost:3000/api/watchlist \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"target_type": "repo", "target_value": "vercel/next.js"}'
+
+Response (200 OK):
+{
+  "success": true,
+  "data": {
+    "id": 7,
+    "user_id": "cdfe13ef-7a9f-4333-84a4-ba6699aa74e5",
+    "target_type": "username",
+    "target_value": "torvalds",
+    "is_active": true,
+    "created_at": "2026-01-18T13:30:00.000000+00:00",
+    "updated_at": "2026-01-18T13:30:00.000000+00:00"
+  }
+}
+
+Error Responses:
+
+Missing required fields (400 Bad Request):
+{
+  "error": "target_type and target_value required"
+}
+
+Invalid target_type (400 Bad Request):
+{
+  "error": "target_type must be one of: username, repo, org"
+}
+
+Unauthorized (401):
+{
+  "error": "Unauthorized"
+}
+
+---
+
+3. Remove from Watchlist
+
+Endpoint: DELETE /watchlist/:target_value
+
+Description: Remove an item from the watchlist by its target value.
+
+Headers:
+Authorization: Bearer <jwt_token>
+
+URL Parameters:
+- target_value - The value to remove (e.g., "torvalds", "nodejs", "vercel/next.js")
+
+Request Examples:
+
+Delete a user:
+curl -X DELETE http://localhost:3000/api/watchlist/torvalds \
+  -H "Authorization: Bearer <jwt_token>"
+
+Delete an organization:
+curl -X DELETE http://localhost:3000/api/watchlist/nodejs \
+  -H "Authorization: Bearer <jwt_token>"
+
+Delete a repository:
+curl -X DELETE http://localhost:3000/api/watchlist/vercel/next.js \
+  -H "Authorization: Bearer <jwt_token>"
+
+Response (200 OK):
+{
+  "success": true,
+  "message": "Removed from watchlist"
+}
+
+Error Responses:
+
+Target not found (500):
+{
+  "error": "Failed to remove from watchlist"
+}
+
+Unauthorized (401):
+{
+  "error": "Unauthorized"
+}
+
+---
+
+4. Analyze Single Target
+
+Endpoint: POST /analyze
+
+Description: Run the agentic analysis pipeline on a single GitHub user, organization, or repository.
+
+Headers:
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+Request Body:
+{
+  "targetUser": "torvalds | nodejs | vercel/next.js"
+}
+
+Request Examples:
+
+Analyze a user:
+curl -X POST http://localhost:3000/api/analyze \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"targetUser": "gvanrossum"}'
+
+Analyze an organization:
+curl -X POST http://localhost:3000/api/analyze \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"targetUser": "nodejs"}'
+
+Analyze a repository:
+curl -X POST http://localhost:3000/api/analyze \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"targetUser": "vercel/next.js"}'
+
+Response (200 OK):
+{
+  "decision": "ENGAGE",
+  "readiness_score": 85,
+  "readinessLevel": "high",
+  "reasoning": "The target is demonstrating high activity and engagement with core projects...",
+  "bridge": "Shared interest in Next.js",
+  "focus": ["Next.js", "React", "TypeScript"],
+  "icebreaker": "Hey, saw you've been active on next.js lately...",
+  "nextStep": "Send message now",
+  "trace": {
+    "researcher": {
+      "recent_activity_summary": "...",
+      "primary_technologies": ["Next.js", "React"],
+      "activity_pattern": "highly_active",
+      "notable_signals": [...]
+    },
+    "strategist": {
+      "readiness_score": 85,
+      "readiness_level": "high",
+      "timing_analysis": "...",
+      "bridge": "...",
+      "reasoning": "..."
+    },
+    "ghostwriter": "..."
+  }
+}
+
+Possible decision values:
+- ENGAGE - High confidence, reach out now
+- WAIT - Good potential, but wait for better timing
+- IGNORE - Not a good fit
+- NO_CHANGE - Cached result, no new activity
+
+Error Responses:
+
+Missing targetUser (400):
+{
+  "error": "Missing targetUser"
+}
+
+GitHub profile not found (returns fallback):
+{
+  "status": "ENGAGE",
+  "score": 85,
+  "readinessLevel": "high",
+  "reason": "Simulated analysis: Target is active in compatible tech stack.",
+  "trace": {
+    "error": "User not found",
+    "note": "Served from dummy data fallback"
+  }
+}
+
+Unauthorized (401):
+{
+  "error": "Unauthorized"
+}
+
+---
+
+5. Batch Analyze Watchlist
+
+Endpoint: GET /analyze-watchlist
+
+Description: Analyze all items in the user's watchlist in parallel. Results are sorted by decision priority (ENGAGE > WAIT > IGNORE > NO_CHANGE).
+
+Headers:
+Authorization: Bearer <jwt_token>
+
+Request:
+curl -X GET http://localhost:3000/api/analyze-watchlist \
+  -H "Authorization: Bearer <jwt_token>"
+
+Response (200 OK):
+{
+  "success": true,
+  "count": 3,
+  "results": [
+    {
+      "target": "torvalds",
+      "type": "username",
+      "decision": "ENGAGE",
+      "readiness_score": 85,
+      "readinessLevel": "high",
+      "reasoning": "High activity with recent pushes...",
+      "bridge": "Shared interest in Linux",
+      "focus": ["linux", "kernel"],
+      "icebreaker": "Hey, saw you've been active on linux lately...",
+      "nextStep": "Send message now",
+      "trace": {
+        "researcher": {...},
+        "strategist": {...},
+        "ghostwriter": "..."
+      }
+    },
+    {
+      "target": "nodejs",
+      "type": "org",
+      "decision": "WAIT",
+      "readiness_score": 45,
+      "readinessLevel": "medium",
+      "reasoning": "Moderate activity, wait for spike...",
+      "bridge": null,
+      "focus": ["node"],
+      "icebreaker": null,
+      "nextStep": "Monitor for new events",
+      "trace": {...}
+    },
+    {
+      "target": "vercel/next.js",
+      "type": "repo",
+      "decision": "ENGAGE",
+      "readiness_score": 72,
+      "readinessLevel": "high",
+      "reasoning": "Active development and contributions...",
+      "bridge": "Next.js framework",
+      "focus": ["Next.js", "React"],
+      "icebreaker": "Love the recent Next.js updates...",
+      "nextStep": "Send message now",
+      "trace": {...}
+    }
+  ]
+}
+
+Empty watchlist response (200 OK):
+{
+  "success": true,
+  "message": "Watchlist is empty",
+  "results": []
+}
+
+Error Response (401 Unauthorized):
+{
+  "error": "Unauthorized"
+}
+
+---
+
+Frontend Integration Guide
+
+1. Store JWT Token
+After user logs in through auth UI, store the token:
+const token = loginResponse.session.access_token;
+localStorage.setItem('authToken', token);
+
+2. Use Token in API Calls
+const token = localStorage.getItem('authToken');
+
+const response = await fetch('http://localhost:3000/api/watchlist', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+3. Example React Component
+import { useEffect, useState } from 'react';
+
+export function WatchlistComponent() {
+  const [watchlist, setWatchlist] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const token = localStorage.getItem('authToken');
+
+  useEffect(() => {
+    fetchWatchlist();
+  }, []);
+
+  const fetchWatchlist = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:3000/api/watchlist', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setWatchlist(data.data);
+    } catch (error) {
+      console.error('Failed to fetch watchlist:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToWatchlist = async (targetType, targetValue) => {
+    try {
+      const res = await fetch('http://localhost:3000/api/watchlist', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ target_type: targetType, target_value: targetValue })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchWatchlist(); // Refresh list
+      }
+    } catch (error) {
+      console.error('Failed to add to watchlist:', error);
+    }
+  };
+
+  const removeFromWatchlist = async (targetValue) => {
+    try {
+      const res = await fetch(`http://localhost:3000/api/watchlist/${targetValue}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchWatchlist(); // Refresh list
+      }
+    } catch (error) {
+      console.error('Failed to remove from watchlist:', error);
+    }
+  };
+
+  const analyzeWatchlist = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:3000/api/analyze-watchlist', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      return data.results;
+    } catch (error) {
+      console.error('Failed to analyze watchlist:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* UI to display and manage watchlist */}
+    </div>
+  );
+}
+
+---
+
+Important Notes
+
+1. User GitHub Username Required: User must have a GitHub username set in their profile for analysis to work.
+
+2. Cache Behavior: The analyze endpoints cache results for 30 minutes. If there's no new activity, it returns the cached analysis.
+
+3. Rate Limiting: GitHub API has rate limits. If you hit them, analysis will return dummy fallback data.
+
+4. Token Expiration: JWT tokens expire. When token is invalid, all endpoints return 401 Unauthorized. User should log in again.
+
+5. Watchlist Limits: No hard limit, but keep it reasonable (< 100 items for best performance).
+
+---
+
+Testing with cURL
+
+All examples above use cURL. Replace <jwt_token> with an actual token from your auth system.
+
+Quick test flow:
+# 1. Add items
+curl -X POST http://localhost:3000/api/watchlist \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"target_type": "username", "target_value": "torvalds"}'
+
+# 2. Get watchlist
+curl -X GET http://localhost:3000/api/watchlist \
+  -H "Authorization: Bearer <token>"
+
+# 3. Analyze all
+curl -X GET http://localhost:3000/api/analyze-watchlist \
+  -H "Authorization: Bearer <token>"
+
+# 4. Delete item
+curl -X DELETE http://localhost:3000/api/watchlist/torvalds \
+  -H "Authorization: Bearer <token>"

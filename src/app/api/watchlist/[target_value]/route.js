@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { removeFromWatchlist } from '../../../../lib/watchlist.js';
 import { verifyAuth, createAuthenticatedClient } from '../../../../lib/auth-utils.js';
+import { mockDb, shouldUseMockData } from '../../../../lib/mock-db.js';
 
 export async function DELETE(request, { params }) {
     try {
@@ -13,7 +14,6 @@ export async function DELETE(request, { params }) {
             );
         }
 
-        // Await params to get the target_value
         const { target_value } = await params;
         const targetValue = target_value;
 
@@ -24,8 +24,21 @@ export async function DELETE(request, { params }) {
             );
         }
 
-        const supabase = createAuthenticatedClient(token);
-        const success = await removeFromWatchlist(supabase, user.id, targetValue);
+        let success;
+
+        // Try real Supabase first
+        try {
+            if (!shouldUseMockData()) {
+                const supabase = createAuthenticatedClient(token);
+                success = await removeFromWatchlist(supabase, user.id, targetValue);
+                console.log('Successfully removed from Supabase watchlist');
+            } else {
+                throw new Error('Supabase not configured, using mock data');
+            }
+        } catch (supabaseError) {
+            console.log('Supabase failed, falling back to mock data:', supabaseError.message);
+            success = await mockDb.removeFromWatchlist(user.id, targetValue);
+        }
 
         if (!success) {
             return NextResponse.json(

@@ -9,12 +9,12 @@ export async function GET(request) {
 
         if (authError || !user) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
+                { error: authError || 'Unauthorized' },
                 { status: 401 }
             );
         }
 
-        // Get user's watchlist
+        // Get user's watchlist from Supabase
         const supabase = createAuthenticatedClient(token);
         const watchlist = await getWatchlist(supabase, user.id);
 
@@ -60,7 +60,7 @@ export async function GET(request) {
     } catch (error) {
         console.error('Batch analysis error:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: error.message || 'Internal server error' },
             { status: 500 }
         );
     }

@@ -18,18 +18,17 @@ export async function POST(request) {
             );
         }
 
-        // Upsert user profile
+        // Upsert user profile with all onboarding fields
         const { data, error } = await supabase
             .from('profiles')
             .upsert(
                 {
                     id: userId,
-                    github_username,
-                    goal: goal || "",
-                    repositories: repositories || "",
-                    organizations: organizations || "",
-                    people: people || "",
-                    created_at: new Date().toISOString(),
+                    github_username: github_username,
+                    goal: goal,
+                    repositories: repositories,
+                    organizations: organizations,
+                    people: people,
                     updated_at: new Date().toISOString()
                 },
                 { onConflict: 'id' }
@@ -46,7 +45,7 @@ export async function POST(request) {
 
         return NextResponse.json({
             success: true,
-            data
+            data: data
         });
     } catch (error) {
         console.error('Onboard error:', error);
