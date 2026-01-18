@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL_NAME = "gemini-2.5-flash-lite";
+const MODEL_NAME = "gemini-3-flash-preview";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",

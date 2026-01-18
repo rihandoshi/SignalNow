@@ -81,8 +81,13 @@ export default function Dashboard() {
     }
   }
 
+  const [analysisError, setAnalysisError] = useState(null)
+
   const analyzeWatchlist = async (silent = false) => {
-    if (!silent) setAnalyzing(true)
+    if (!silent) {
+      setAnalyzing(true)
+      setAnalysisError(null)
+    }
     try {
       const token = localStorage.getItem('authToken')
       console.log('Analyzing watchlist with token:', token ? 'present' : 'missing')
@@ -97,14 +102,26 @@ export default function Dashboard() {
         console.log('Setting analysis results:', data.results)
         setAnalysisResults(data.results)
         setLastAnalysis(new Date())
+
+        if (data.results.length === 0 && data.message) {
+          setAnalysisError(data.message)
+        } else if (data.warnings && data.warnings.length > 0) {
+          // If we have results but also warnings, maybe show them?
+          // For now, only show error if NO results, or maybe a toast.
+          // Let's just log them for now if we have results.
+          console.warn('Analysis warnings:', data.warnings)
+        }
+
         if (!silent) {
           console.log(`Analyzed ${data.results.length} targets`)
         }
       } else {
         console.error('Analysis failed:', data.error)
+        setAnalysisError(data.error || 'Analysis failed')
       }
     } catch (error) {
       console.error('Failed to analyze watchlist:', error)
+      setAnalysisError(error.message || 'Failed to analyze watchlist')
     } finally {
       if (!silent) setAnalyzing(false)
     }
@@ -221,7 +238,7 @@ export default function Dashboard() {
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors font-medium bg-white"
               >
                 <Settings className="h-4 w-4" />
-                <span>Console</span>
+                <span>Change Goal</span>
               </button>
               <LogoutButton />
             </div>
@@ -250,6 +267,17 @@ export default function Dashboard() {
             {analysisResults.length === 0 ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
                 <div className="text-center max-w-md mx-auto">
+                  {/* Error Message Display */}
+                  {analysisError && (
+                    <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start text-left">
+                      <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                      <div>
+                        <h3 className="text-sm font-semibold text-red-800">Analysis Issue</h3>
+                        <p className="text-sm text-red-700 mt-1">{analysisError}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-6 mx-auto">
                     <TrendingUp className="h-8 w-8 text-blue-600" />
                   </div>

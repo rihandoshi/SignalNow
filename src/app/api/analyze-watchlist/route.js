@@ -17,7 +17,14 @@ export async function GET(request) {
 
         // Get user's watchlist from Supabase
         const supabase = createAuthenticatedClient(token);
-        const watchlist = await getWatchlist(supabase, user.id);
+
+        // Parallel fetch: Watchlist AND Goal
+        const [watchlist, profileData] = await Promise.all([
+            getWatchlist(supabase, user.id),
+            supabase.from('profiles').select('goal').eq('id', user.id).single()
+        ]);
+
+        const userGoal = profileData.data?.goal || "";
 
         if (watchlist.length === 0) {
             return NextResponse.json({
@@ -31,26 +38,29 @@ export async function GET(request) {
         // 1. Discovery Phase: Find people from the watchlist
         const candidates = [];
         const seenCandidates = new Set(); // Deduplication
+        const warnings = [];
 
-        console.log(`Starting discovery for ${watchlist.length} sources...`);
+        console.log(`Starting discovery for ${watchlist.length} sources with goal: "${userGoal.substring(0, 20)}..."`);
+        console.log('Watchlist items:', watchlist.map(i => `${i.target_type}:${i.target_value}`));
 
         await Promise.all(watchlist.slice(0, 5).map(async (item) => {
             try {
                 let discoveredPeople = [];
                 let sourceType = "";
+                const type = item.target_type.toLowerCase();
 
-                if (item.target_type === 'repo') {
+                if (type === 'repo') {
                     // It's a repo, find contributors
-                    const contributors = await getRepoContributors(item.target_value);
+                    const contributors = await getRepoContributors(item.target_value, userGoal);
                     discoveredPeople = contributors.map(c => ({
                         username: c.username,
                         source: `Contributor to ${item.target_value}`,
                         context: `Recent commit in ${item.target_value}: "${c.last_commit_msg}"`
                     }));
                     sourceType = "Repo Contributor";
-                } else if (item.target_type === 'org') {
+                } else if (type === 'org') {
                     // It's an org, find contributors from top repos
-                    const contributors = await getOrgContributors(item.target_value);
+                    const contributors = await getOrgContributors(item.target_value, userGoal);
                     discoveredPeople = contributors.map(c => ({
                         username: c.username,
                         source: `Contributor to ${item.target_value} (Org)`,
@@ -67,7 +77,12 @@ export async function GET(request) {
                     sourceType = "Direct";
                 }
 
+                if (discoveredPeople.length === 0) {
+                    warnings.push(`No active contributors found for ${item.target_type} "${item.target_value}". Check spelling or activity.`);
+                }
+
                 // Add to candidates list (deduplicated)
+                console.log(`[Discovery] Found ${discoveredPeople.length} people for ${item.target_value}.`);
                 for (const person of discoveredPeople) {
                     if (!seenCandidates.has(person.username)) {
                         seenCandidates.add(person.username);
@@ -76,20 +91,21 @@ export async function GET(request) {
                 }
             } catch (err) {
                 console.error(`Discovery failed for ${item.target_value}:`, err);
+                warnings.push(`Failed to analyze ${item.target_value}: ${err.message}`);
             }
         }));
 
-        console.log(`Discovered ${candidates.length} unique candidates for analysis.`);
+        console.log(`Discovered ${candidates.length} unique candidates. Warnings:`, warnings);
 
         if (candidates.length === 0) {
             return NextResponse.json({
                 success: true,
-                message: 'No active candidates found from watchlist sources',
-                results: []
+                message: warnings.length > 0 ? warnings[0] : 'No active candidates found',
+                results: [],
+                warnings: warnings
             });
         }
 
-        // 2. Analysis Phase: Analyze the discovered people
         // 2. Analysis Phase: Analyze the discovered people
         // Limit to very small batch size to avoid timeout (Vercel limit/Browser timeout)
         // Initial limit: 3 candidates max per run
@@ -127,6 +143,7 @@ export async function GET(request) {
             count: results.length,
             results: sorted
         });
+
     } catch (error) {
         console.error('Batch analysis error:', error);
         return NextResponse.json(
