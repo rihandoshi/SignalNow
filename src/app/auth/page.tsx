@@ -50,7 +50,7 @@ export default function AuthPage() {
                     password: data.password,
                 });
                 if (error) throw error;
-                router.push("/");
+                router.push("/console"); // Redirect to onboarding/console
                 router.refresh();
             }
         } catch (e: any) {
@@ -78,143 +78,165 @@ export default function AuthPage() {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-black">
+        <div className="flex min-h-screen items-center justify-center bg-white">
+            <style>{`
+        @keyframes fadeOutDown {
+          from {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(40px);
+          }
+        }
+
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800"
+                className="w-full max-w-lg p-10 bg-white rounded-3xl shadow-2xl border border-gray-100"
             >
-                <div className="p-8">
-                    <div className="mb-8 text-center">
-                        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                            {isSignUp ? "Create an account" : "Welcome back"}
-                        </h1>
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            {isSignUp
-                                ? "Enter your email to get started"
-                                : "Please enter your details to sign in"}
-                        </p>
+                <div className="text-center mb-10">
+                    <div className="w-16 h-16 bg-gradient-to-br from-gray-900 to-gray-700 text-white rounded-2xl mx-auto flex items-center justify-center text-2xl font-bold shadow-lg mb-4">
+                        S
                     </div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                        {isSignUp ? "Create Account" : "Welcome Back"}
+                    </h1>
+                    <p className="text-gray-500">
+                        {isSignUp
+                            ? "Join the high-signal network"
+                            : "Sign in to access your dashboard"}
+                    </p>
+                </div>
 
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                        <div className="space-y-2">
-                            <label
-                                htmlFor="email"
-                                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                                Email
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                                <input
-                                    {...register("email")}
-                                    id="email"
-                                    type="email"
-                                    placeholder="name@example.com"
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-10 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:focus:border-blue-500"
-                                />
-                            </div>
-                            {errors.email && (
-                                <p className="text-xs text-red-500">{errors.email.message}</p>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <label
-                                htmlFor="password"
-                                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                                Password
-                            </label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                                <input
-                                    {...register("password")}
-                                    id="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    className="w-full rounded-lg border border-gray-300 bg-white px-10 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:focus:border-blue-500"
-                                />
-                            </div>
-                            {errors.password && (
-                                <p className="text-xs text-red-500">
-                                    {errors.password.message}
-                                </p>
-                            )}
-                        </div>
-
-                        {error && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                className="rounded-lg bg-red-50 p-3 text-sm text-red-500 dark:bg-red-900/20"
-                            >
-                                {error}
-                            </motion.div>
-                        )}
-
-                        {message && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                className="rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-900/20"
-                            >
-                                {message}
-                            </motion.div>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="group flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 dark:focus:ring-offset-zinc-900"
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="space-y-2">
+                        <label
+                            htmlFor="email"
+                            className="text-sm font-semibold text-gray-700"
                         >
-                            {isLoading ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <>
-                                    {isSignUp ? "Sign Up" : "Sign In"}
-                                    <ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                                </>
-                            )}
-                        </button>
-                    </form>
-
-                    <div className="relative my-8">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-gray-200 dark:border-zinc-700" />
+                            Email
+                        </label>
+                        <div className="relative">
+                            <Mail className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+                            <input
+                                {...register("email")}
+                                id="email"
+                                type="email"
+                                placeholder="name@example.com"
+                                className="w-full pl-12 pr-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                            />
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white px-2 text-gray-500 dark:bg-zinc-900">
-                                Or continue with
-                            </span>
-                        </div>
+                        {errors.email && (
+                            <p className="text-xs text-red-500">{errors.email.message}</p>
+                        )}
                     </div>
+
+                    <div className="space-y-2">
+                        <label
+                            htmlFor="password"
+                            className="text-sm font-semibold text-gray-700"
+                        >
+                            Password
+                        </label>
+                        <div className="relative">
+                            <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+                            <input
+                                {...register("password")}
+                                id="password"
+                                type="password"
+                                placeholder="••••••••"
+                                className="w-full pl-12 pr-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                            />
+                        </div>
+                        {errors.password && (
+                            <p className="text-xs text-red-500">{errors.password.message}</p>
+                        )}
+                    </div>
+
+                    {error && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="rounded-xl bg-red-50 p-4 text-sm text-red-600 border border-red-100"
+                        >
+                            {error}
+                        </motion.div>
+                    )}
+
+                    {message && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="rounded-xl bg-green-50 p-4 text-sm text-green-600 border border-green-100"
+                        >
+                            {message}
+                        </motion.div>
+                    )}
 
                     <button
-                        onClick={handleGithubLogin}
+                        type="submit"
                         disabled={isLoading}
-                        className="flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 focus:ring-offset-2 disabled:opacity-70 dark:border-zinc-700 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700 dark:focus:ring-zinc-700 dark:focus:ring-offset-zinc-900"
+                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 hover:shadow-xl active:scale-95 transition-all duration-200 disabled:opacity-70 disabled:hover:shadow-none disabled:active:scale-100"
                     >
-                        <Github className="mr-2 h-4 w-4" />
-                        GitHub
+                        {isLoading ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                            <>
+                                {isSignUp ? "Sign Up" : "Sign In"}
+                                <ChevronRight className="h-4 w-4" />
+                            </>
+                        )}
                     </button>
+                </form>
 
-                    <div className="mt-8 text-center text-sm">
-                        <p className="text-gray-600 dark:text-gray-400">
-                            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-                            <button
-                                onClick={() => {
-                                    setIsSignUp(!isSignUp);
-                                    setError(null);
-                                    setMessage(null);
-                                }}
-                                className="font-medium text-blue-600 hover:text-blue-500 hover:underline dark:text-blue-400"
-                            >
-                                {isSignUp ? "Sign in" : "Sign up"}
-                            </button>
-                        </p>
+                <div className="relative my-8">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-gray-100" />
                     </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-4 text-gray-400 font-medium">
+                            Or continue with
+                        </span>
+                    </div>
+                </div>
+
+                <button
+                    onClick={handleGithubLogin}
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 px-6 py-4 border-2 border-gray-200 bg-white text-gray-700 font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 active:scale-95 disabled:opacity-70 disabled:active:scale-100"
+                >
+                    <Github className="h-5 w-5" />
+                    GitHub
+                </button>
+
+                <div className="mt-8 text-center text-sm">
+                    <p className="text-gray-500">
+                        {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                        <button
+                            onClick={() => {
+                                setIsSignUp(!isSignUp);
+                                setError(null);
+                                setMessage(null);
+                            }}
+                            className="font-semibold text-gray-900 hover:underline"
+                        >
+                            {isSignUp ? "Sign in" : "Sign up"}
+                        </button>
+                    </p>
                 </div>
             </motion.div>
         </div>

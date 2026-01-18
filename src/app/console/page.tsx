@@ -2,18 +2,39 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
+import { supabase } from "@/lib/supabase-client"
+import { useRouter } from "next/navigation"
 
 export default function ConfigurePage() {
-  const [identity, setIdentity] = useState("")
-  const [interestVector, setInterestVector] = useState("")
-  const [targetSector, setTargetSector] = useState("")
+  const [goal, setGoal] = useState("")
+  const [repositories, setRepositories] = useState("")
   const [isScanning, setIsScanning] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [user, setUser] = useState<any>(null)
   const cardRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser(user);
+      } else {
+        // Optionally redirect to auth if not logged in
+        // router.push('/auth');
+      }
+    }
+    getUser();
+  }, [])
 
   const handleInitialize = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!user) {
+      alert("User not found. Please log in.");
+      return;
+    }
 
     // Fade out card
     if (cardRef.current) {
@@ -24,15 +45,33 @@ export default function ConfigurePage() {
     setIsScanning(true)
     setProgress(0)
 
+    // Save to API
+    try {
+      // Extract github username from metadata if available
+      const github_username = user.user_metadata?.user_name || user.user_metadata?.preferred_username;
+
+      await fetch('/api/onboard', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: user.id,
+          github_username,
+          goal,
+          repositories
+        })
+      });
+    } catch (error) {
+      console.error("Onboarding error", error);
+    }
+
     // Simulate progress
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval)
           // Save identity to LocalStorage so Dashboard can pick it up
+          // We can use the username or ID
+          const identity = user.user_metadata?.user_name || user.email;
           localStorage.setItem("signal_identity", identity)
-          if (interestVector) localStorage.setItem("signal_interest", interestVector)
-          if (targetSector) localStorage.setItem("signal_sector", targetSector)
 
           // Redirect after completion
           setTimeout(() => {
@@ -82,50 +121,36 @@ export default function ConfigurePage() {
               S
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Configure Your Signal</h1>
-            <p className="text-gray-500">Set up your network parameters</p>
+            <p className="text-gray-500">Tell us what you're looking for</p>
           </div>
 
           <form onSubmit={handleInitialize} className="space-y-6">
+
             <div className="flex flex-col gap-3">
-              <label htmlFor="identity" className="text-sm font-semibold text-gray-700">
-                GitHub Username
+              <label htmlFor="goal" className="text-sm font-semibold text-gray-700">
+                Your Goal
               </label>
-              <input
-                id="identity"
-                type="text"
-                placeholder="Enter your username"
-                value={identity}
-                onChange={(e) => setIdentity(e.target.value)}
+              <textarea
+                id="goal"
+                placeholder="e.g. Find active developers working on open-source web development tools."
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
                 required
-                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                rows={3}
+                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200 resize-none"
               />
             </div>
 
             <div className="flex flex-col gap-3">
-              <label htmlFor="interest" className="text-sm font-semibold text-gray-700">
-                Interest Vector
+              <label htmlFor="repositories" className="text-sm font-semibold text-gray-700">
+                Interesting Repositories / Topics
               </label>
               <input
-                id="interest"
+                id="repositories"
                 type="text"
-                placeholder="e.g. Rust, Web3, GenAI"
-                value={interestVector}
-                onChange={(e) => setInterestVector(e.target.value)}
-                required
-                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
-              />
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <label htmlFor="sector" className="text-sm font-semibold text-gray-700">
-                Target Sector
-              </label>
-              <input
-                id="sector"
-                type="text"
-                placeholder="e.g. Vercel, Stripe, or specific repo"
-                value={targetSector}
-                onChange={(e) => setTargetSector(e.target.value)}
+                placeholder="e.g. facebook/react, vercel/next.js, rust-lang"
+                value={repositories}
+                onChange={(e) => setRepositories(e.target.value)}
                 required
                 className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />
