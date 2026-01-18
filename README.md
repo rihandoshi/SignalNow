@@ -1,150 +1,81 @@
-# Signal Now - Smart GitHub Networking
+# SignalNow
 
-A hackathon project that analyzes GitHub activity to find the perfect moment to connect with developers, maintainers, and teams.
+SignalNow is an intelligent networking tool that analyzes GitHub activity to help you find the right people to connect with at the perfect time.
 
-## 🚀 Features Implemented
+## Project Structure
 
-### ✅ Complete Authentication System
-- Email/password signup and login
-- GitHub OAuth integration
-- Secure JWT token management
-- Protected routes and API endpoints
+- `src/`: Source code for the Next.js application.
+- `database/`: SQL schemas and migration scripts for Supabase.
 
-### ✅ User Onboarding
-- GitHub username collection
-- Networking goal setting
-- Watchlist initialization (people, orgs, repos)
-- Smooth progress animation
+## Setup Instructions
 
-### ✅ Smart Watchlist Management
-- Add/remove GitHub users, organizations, and repositories
-- Clean, intuitive UI with type indicators
-- Real-time updates and error handling
+### Prerequisites
 
-### ✅ AI-Powered Analysis Engine
-- 3-agent analysis pipeline (Researcher → Strategist → Ghostwriter)
-- Readiness scoring (0-100) based on:
-  - Recent activity timing (40%)
-  - Tech stack overlap (30%) 
-  - Development momentum (30%)
-- Decision recommendations: ENGAGE / WAIT / IGNORE
-- Personalized icebreaker message generation
+- Node.js (v18 or higher)
+- npm
+- Supabase account and project
 
-### ✅ Interactive Dashboard
-- Real-time analysis results display
-- Detailed person cards with full analysis breakdown
-- Status indicators and readiness scores
-- Copy-to-clipboard functionality for messages
-- Responsive design with smooth animations
+### Installation
 
-### ✅ Comprehensive API
-- `/api/watchlist` - CRUD operations for tracking targets
-- `/api/analyze` - Single target analysis
-- `/api/analyze-watchlist` - Batch analysis of all targets
-- `/api/onboard` - User profile setup
-- Full authentication and error handling
-
-## 🛠 Tech Stack
-
-- **Frontend**: Next.js 16, React 19, TypeScript
-- **Styling**: Tailwind CSS 4, Radix UI components
-- **Animations**: Framer Motion
-- **Backend**: Next.js API routes (serverless)
-- **Database**: Supabase (PostgreSQL with RLS)
-- **Authentication**: Supabase Auth (JWT + GitHub OAuth)
-- **AI**: Google Gemini 2.5 Flash Lite
-- **Icons**: Lucide React
-
-## 🎯 How It Works
-
-1. **Add Targets**: Users add GitHub usernames, organizations, or repositories to their watchlist
-2. **AI Analysis**: 3-agent system analyzes activity patterns, tech overlap, and timing
-3. **Smart Recommendations**: Get readiness scores, connection strategies, and personalized messages
-4. **Perfect Timing**: Know exactly when someone is most receptive to networking
-
-## 🏃‍♂️ Quick Start
-
-1. **Clone and Install**
+1. Clone the repository.
+2. Install dependencies:
    ```bash
    npm install
    ```
-
-2. **Environment Setup**
-   Copy `.env.local.example` to `.env.local` and add:
+3. Set up environment variables:
+   Create a `.env.local` file in the root directory and add your Supabase credentials:
    ```
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_KEY=your_service_key
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_anon_key
    GEMINI_API_KEY=your_gemini_api_key
    ```
 
-3. **Database Setup**
-   Run the SQL schema in `supabase-schema.sql` in your Supabase dashboard
+### Database Setup
 
-4. **Start Development**
-   ```bash
-   npm run dev
-   ```
+The database schema definitions are located in the `database/` directory.
 
-5. **Visit** `http://localhost:3000`
+1. Go to your Supabase SQL Editor.
+2. Run the content of `database/final_schema.sql`. This file contains the complete, up-to-date schema for the application, including:
+   - `profiles` table for user data.
+   - `tracked_profiles` table for analysis results (with trace data support).
+   - `user_watchlist` and `analysis_history` tables.
 
-## 📱 User Flow
 
-1. **Landing** → Welcome page with feature overview
-2. **Auth** → Sign up/login with email or GitHub OAuth  
-3. **Onboarding** → Set networking goals and initial watchlist
-4. **Dashboard** → Manage watchlist and view analysis results
-5. **Analysis** → Click "Analyze All" to get AI recommendations
-6. **Connect** → Use suggested messages and timing to reach out
+## Running the Application
 
-## 🎨 Design System
+To start the development server:
 
-- **Colors**: Gray-based palette with accent colors for status
-- **Typography**: Geist Sans for UI, Geist Mono for code
-- **Components**: Consistent rounded corners, subtle shadows
-- **Animations**: Smooth transitions and micro-interactions
-- **Responsive**: Mobile-first design with breakpoints
+```bash
+npm run dev
+```
 
-## 🔒 Security Features
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-- Row-level security (RLS) in Supabase
-- JWT token validation on all API routes
-- Input sanitization and validation
-- Protected routes with auth checks
-- Secure environment variable handling
+## Testing and Verification
 
-## 📊 Analysis Pipeline
+### Onboarding Flow
+1. Sign up with a new email or GitHub account.
+2. You should be automatically redirected to `/console` to complete your profile (set a goal, etc.).
+3. After initialization, you will be redirected to the Dashboard.
 
-### Agent 1: Researcher
-- Extracts GitHub activity signals
-- Identifies tech stack and patterns
-- Returns structured activity data
+### Dashboard Protection
+- Try to access `/` without logging in. You should be redirected to `/auth`.
+- Try to access `/` with a logged-in user who hasn't completed onboarding. You should be redirected to `/console`.
 
-### Agent 2: Strategist  
-- Calculates readiness score
-- Finds connection bridges
-- Determines optimal timing
+### Analysis Pipeline
+1. Add a GitHub username to your watchlist.
+2. Click "Analyze" on the dashboard.
+3. Once analysis is complete, click "View Details" on the profile card.
+4. Verify that:
+   - "Draft Message" (Icebreaker) is displayed.
+   - "AI Reasoning" is displayed.
+   - "Analysis Trace" section at the bottom can be expanded to show the full JSON output.
+   - This data persists even after refreshing the page (served from `last_trace` column).
 
-### Agent 3: Ghostwriter
-- Generates casual, human messages
-- Avoids corporate language
-- Creates personalized icebreakers
+## Features
 
-## 🚀 Deployment Ready
-
-- Serverless architecture (Vercel/Netlify compatible)
-- Environment-based configuration
-- Production-ready error handling
-- Optimized build process
-
-## 🎯 Hackathon Highlights
-
-- **Complete MVP** in record time
-- **Real AI integration** with multi-agent system
-- **Production-quality** code and architecture
-- **Smooth UX** with polished animations
-- **Scalable design** for future features
-
----
-
-Built with ❤️ for the hackathon community. Ready to network smarter!
+- **Smart Watchlist**: Track GitHub users and Organizations.
+- **AI Analysis**: Uses Gemini to analyze activity patterns, readiness, and generate cold outreach messages.
+- **Strict Onboarding**: Ensures all users define their goals before using the platform.
+- **Trace Persistence**: Saves full analysis context for debugging and review.

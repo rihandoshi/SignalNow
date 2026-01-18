@@ -197,7 +197,7 @@ export default function AuthPage() {
                                 <input
                                     {...register("email")}
                                     type="email"
-                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white placeholder-gray-500"
+                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white placeholder-gray-500 text-black"
                                     placeholder="Enter your email"
                                 />
                             </div>
@@ -215,7 +215,7 @@ export default function AuthPage() {
                                 <input
                                     {...register("password")}
                                     type="password"
-                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white placeholder-gray-500"
+                                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white placeholder-gray-500 text-black"
                                     placeholder="Enter your password"
                                 />
                             </div>
@@ -234,7 +234,7 @@ export default function AuthPage() {
                                     <input
                                         {...register("githubUsername")}
                                         type="text"
-                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white placeholder-gray-500"
+                                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white placeholder-gray-500 text-black"
                                         placeholder="Your GitHub username"
                                     />
                                 </div>
