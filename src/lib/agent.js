@@ -371,14 +371,14 @@ export async function analyzeProfile(userId, targetUser, myGoal = "Find active d
             reasoning: previousState.last_reason,
             bridge: previousState.last_bridge,
             focus: previousState.last_focus ? JSON.parse(previousState.last_focus) : [],
-            icebreaker: null,
-            nextStep: "No changes detected. Monitoring continues.",
-            trace: {
+            icebreaker: previousState.last_icebreaker || null,
+            nextStep: previousState.last_next_step || "No changes detected. Monitoring continues.",
+            trace: previousState.last_trace || { // Load the full trace from cache
                 cached: true,
                 cached_at: previousState.last_checked_at,
-                researcher: "Skipped (cached)",
-                strategist: "Skipped (cached)",
-                ghostwriter: "Skipped (cached)"
+                researcher: "Trace data not available for this cached result.",
+                strategist: "Trace data not available for this cached result.",
+                ghostwriter: "Trace data not available for this cached result."
             }
         };
     }
@@ -465,7 +465,10 @@ export async function analyzeProfile(userId, targetUser, myGoal = "Find active d
         last_decision: status,
         last_bridge: strategy.bridge,
         last_reason: strategy.reasoning,
-        last_focus: JSON.stringify(vibe.primary_technologies || [])
+        last_focus: JSON.stringify(vibe.primary_technologies || []),
+        last_icebreaker: icebreaker,
+        last_next_step: analysisResult.nextStep,
+        last_trace: analysisResult.trace // Save the full trace!
     });
 
     await insertAnalysisHistory(userId, targetUser, {
@@ -473,7 +476,7 @@ export async function analyzeProfile(userId, targetUser, myGoal = "Find active d
         decision: status,
         reasoning: strategy.reasoning,
         bridge: strategy.bridge,
-        trace: analysisResult.trace
+        trace: analysisResult.trace // This was already here? Yes, raw_trace_json
     });
 
     return analysisResult;

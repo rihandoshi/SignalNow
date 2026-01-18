@@ -28,6 +28,20 @@ export default function Dashboard() {
         if (session.access_token) {
           localStorage.setItem('authToken', session.access_token);
         }
+
+        // Verify onboarding status
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('goal')
+          .eq('id', session.user.id)
+          .single()
+
+        if (!profile || !profile.goal) {
+          console.log('User not onboarded, redirecting to console')
+          router.push('/console')
+          return
+        }
+
         setUser(session.user)
         fetchWatchlist()
       } else {
@@ -316,14 +330,14 @@ export default function Dashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => setSelectedPerson(null)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <PersonDetailModal
@@ -514,6 +528,10 @@ function ProfileCard({ person, onConnect, onViewDetails }) {
 function PersonDetailModal({ person, onClose, onConnect }) {
   const [copied, setCopied] = useState(false)
 
+  // Access nested trace data safely
+  const researcher = person.trace?.researcher || {}
+  const strategist = person.trace?.strategist || {}
+
   const handleCopyMessage = () => {
     if (person.icebreaker) {
       navigator.clipboard.writeText(person.icebreaker)
@@ -523,157 +541,226 @@ function PersonDetailModal({ person, onClose, onConnect }) {
   }
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div className="flex items-center space-x-6">
-          <img
-            src={`https://github.com/${person.target}.png`}
-            alt={person.target}
-            className="w-20 h-20 rounded-full border-2 border-gray-200"
-            onError={(e) => {
-              e.target.src = `https://ui-avatars.com/api/?name=${person.target}&background=f3f4f6&color=374151&size=80`
-            }}
-          />
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">{person.target}</h2>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Github className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-600 capitalize">{person.type}</span>
+    <div className="flex flex-col h-[85vh]">
+      {/* Premium Header with Blur */}
+      <div className="relative overflow-hidden bg-gray-900 text-white p-8 flex-shrink-0">
+        <div className="absolute top-0 right-0 p-3 opacity-10">
+          <svg width="200" height="200" viewBox="0 0 100 100" fill="white">
+            <path d="M50 0 L100 100 L0 100 Z" />
+          </svg>
+        </div>
+
+        <div className="relative z-10 flex items-start justify-between">
+          <div className="flex items-center space-x-6">
+            <div className="relative">
+              <img
+                src={`https://github.com/${person.target}.png`}
+                alt={person.target}
+                className="w-24 h-24 rounded-2xl border-4 border-white/10 shadow-2xl"
+                onError={(e) => {
+                  e.target.src = `https://ui-avatars.com/api/?name=${person.target}&background=374151&color=fff&size=96`
+                }}
+              />
+              <div className={`absolute -bottom-2 -right-2 px-3 py-1 rounded-full text-xs font-bold border-2 border-gray-900 ${person.decision === 'ENGAGE' ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                }`}>
+                {person.decision}
               </div>
-              <a
-                href={`https://github.com/${person.target}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-1 text-blue-600 hover:text-blue-700"
-              >
-                <ExternalLink className="h-4 w-4" />
-                <span>View on GitHub</span>
-              </a>
+            </div>
+
+            <div>
+              <h2 className="text-4xl font-bold mb-2 tracking-tight">{person.target}</h2>
+              <div className="flex items-center space-x-4 text-gray-300">
+                <div className="flex items-center space-x-2">
+                  <Github className="h-5 w-5" />
+                  <span className="capitalize font-medium">{person.type}</span>
+                </div>
+                <span>•</span>
+                <span className={`px-2 py-0.5 rounded text-sm font-medium ${researcher.activity_pattern === 'highly_active' ? 'bg-green-500/20 text-green-300' : 'bg-gray-700 text-gray-300'
+                  }`}>
+                  {researcher.activity_pattern ? researcher.activity_pattern.replace('_', ' ') : 'Unknown Activity'}
+                </span>
+                <a
+                  href={`https://github.com/${person.target}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 transition-colors ml-4"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>GitHub</span>
+                </a>
+              </div>
             </div>
           </div>
+
+          <button
+            onClick={onClose}
+            className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all backdrop-blur-sm"
+          >
+            <XCircle className="w-6 h-6 text-white" />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <XCircle className="w-6 h-6" />
-        </button>
       </div>
 
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column */}
-        <div className="space-y-6">
-          {/* Score and Status */}
-          <div className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Analysis Summary</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="text-3xl font-bold text-blue-600">{person.readiness_score}/100</div>
-                <div className="text-sm text-gray-500">Readiness Score</div>
-              </div>
-              <div>
-                <div className="text-xl font-bold text-gray-900 capitalize">{person.readinessLevel}</div>
-                <div className="text-sm text-gray-500">Readiness Level</div>
-              </div>
-            </div>
-          </div>
+      {/* Main Content Info */}
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          {/* Connection Bridge */}
-          {person.bridge && (
-            <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">Connection Point</h3>
-              <p className="text-blue-800">{person.bridge}</p>
-            </div>
-          )}
+          {/* LEFT COLUMN - STRATEGY */}
+          <div className="lg:col-span-2 space-y-8">
 
-          {/* Focus Areas */}
-          {(() => {
-            const focusAreas = Array.isArray(person?.focus)
-              ? person.focus
-              : (typeof person?.focus === 'string' ? person.focus.split(',').map(s => s.trim()) : []);
-
-            if (focusAreas.length === 0) return null;
-
-            return (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Focus Areas</h3>
-                <div className="flex flex-wrap gap-2">
-                  {focusAreas.map((tech, index) => (
-                    <span key={index} className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium">
-                      {tech}
-                    </span>
-                  ))}
+            {/* 1. THE HOOK (Strategist) */}
+            {strategist.the_hook && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-blue-100 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                <h3 className="text-sm font-bold text-blue-600 uppercase tracking-widest mb-3 flex items-center">
+                  <span className="mr-2">⚡</span> The Technical Hook
+                </h3>
+                <p className="text-2xl font-medium text-gray-900 leading-snug">
+                  "{strategist.the_hook}"
+                </p>
+                <div className="mt-4 flex items-center space-x-4 text-sm text-gray-500">
+                  {strategist.bridge && (
+                    <div className="flex items-center">
+                      <span className="font-semibold mr-2 text-gray-700">Bridge:</span> {strategist.bridge}
+                    </div>
+                  )}
                 </div>
               </div>
-            );
-          })()}
-        </div>
+            )}
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Reasoning */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Analysis Reasoning</h3>
-            <div className="bg-gray-50 rounded-xl p-6">
-              <p className="text-gray-700 leading-relaxed">{person.reasoning}</p>
+            {/* 2. RESEARCHER INSIGHTS */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <span className="bg-gray-100 p-2 rounded-lg mr-3">🔍</span> Researcher Intel
+              </h3>
+
+              {researcher.recent_activity_summary && (
+                <div className="mb-6">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Recent Cycle</h4>
+                  <p className="text-gray-700 italic border-l-2 border-gray-300 pl-4">
+                    {researcher.recent_activity_summary}
+                  </p>
+                </div>
+              )}
+
+              {researcher.notable_signals && researcher.notable_signals.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Observable Signals</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {researcher.notable_signals.map((signal, idx) => (
+                      <div key={idx} className="flex items-start space-x-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                        <span className="text-blue-500 mt-0.5">•</span>
+                        <span>{signal}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* 3. FOCUS AREAS */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Tech Context</h3>
+              {(() => {
+                const focusAreas = Array.isArray(person?.focus)
+                  ? person.focus
+                  : (typeof person?.focus === 'string' ? person.focus.split(',').map(s => s.trim()) : []);
+
+                return (
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {focusAreas.map((tech, i) => (
+                      <span key={i} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md font-medium text-sm border border-gray-200">
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                {strategist.timing_analysis && (
+                  <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100">
+                    <span className="block font-semibold text-yellow-800 mb-1">Timing Analysis</span>
+                    <span className="text-yellow-900 opacity-90">{strategist.timing_analysis}</span>
+                  </div>
+                )}
+                {strategist.momentum_shift && (
+                  <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                    <span className="block font-semibold text-purple-800 mb-1">Momentum Shift?</span>
+                    <span className="text-purple-900 opacity-90 capitalize">{strategist.momentum_shift}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
 
-          {/* Icebreaker Message */}
-          {person.icebreaker && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Suggested Message</h3>
-              <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-                <p className="text-green-800 mb-4 italic">"{person.icebreaker}"</p>
-                <button
-                  onClick={handleCopyMessage}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                >
-                  {copied ? (
-                    <>
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <MessageSquare className="h-4 w-4" />
-                      <span>Copy Message</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
+          {/* RIGHT COLUMN - ACTION */}
+          <div className="space-y-6">
 
-          {/* Next Step */}
-          {person.nextStep && (
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Recommended Action</h3>
-              <div className="bg-yellow-50 rounded-xl p-6 border border-yellow-200">
-                <p className="text-yellow-800">{person.nextStep}</p>
+            {/* SCORE CARD */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-50 pointer-events-none"></div>
+              <div className="relative z-10">
+                <div className="text-5xl font-black text-gray-900 mb-1">{person.readiness_score}</div>
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Readiness Score</div>
+
+                <div className={`inline-flex items-center px-4 py-2 rounded-full font-bold text-sm ${person.readiness_score >= 70 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                  {person.readinessLevel ? person.readinessLevel.toUpperCase() : 'MEDIUM'} INTENT
+                </div>
               </div>
             </div>
-          )}
+
+            {/* ICEBREAKER CARD */}
+            {person.icebreaker && (
+              <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-1 shadow-lg transform transition-transform hover:scale-[1.02]">
+                <div className="bg-gray-900 rounded-xl p-5 h-full flex flex-col">
+                  <h3 className="text-white font-bold flex items-center justify-between mb-4">
+                    <span>Draft Message</span>
+                    <span className="text-xs font-normal text-gray-400 bg-gray-800 px-2 py-1 rounded">Ghostwriter v1</span>
+                  </h3>
+
+                  <div className="bg-gray-800/50 rounded-lg p-4 mb-4 font-mono text-sm text-gray-200 leading-relaxed border border-gray-700">
+                    "{person.icebreaker}"
+                  </div>
+
+                  <button
+                    onClick={handleCopyMessage}
+                    className="w-full mt-auto py-3 bg-white text-gray-900 font-bold rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    {copied ? <CheckCircle className="h-4 w-4" /> : <div className="h-4 w-4">📋</div>}
+                    <span>{copied ? "Copied to Clipboard" : "Copy to Clipboard"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* REASONING */}
+            <div className="bg-gray-100 rounded-2xl p-6">
+              <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">AI Reasoning</h4>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                {person.reasoning}
+              </p>
+            </div>
+
+            {/* TRACE DROPDOWN */}
+            <div className="mt-4">
+              <details className="group">
+                <summary className="flex items-center justify-between cursor-pointer p-4 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs font-bold text-gray-500 uppercase tracking-widest transition-colors">
+                  <span>View Raw Trace Data</span>
+                  <span className="group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div className="mt-2 p-4 bg-gray-900 rounded-xl overflow-x-auto">
+                  <pre className="text-xs text-green-400 font-mono leading-relaxed">
+                    {JSON.stringify(person.trace || {}, null, 2)}
+                  </pre>
+                </div>
+              </details>
+            </div>
+
+          </div>
         </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
-        <button
-          onClick={onClose}
-          className="px-6 py-3 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium"
-        >
-          Close
-        </button>
-        <button
-          onClick={onConnect}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
-        >
-          Connect Now
-        </button>
       </div>
     </div>
   )

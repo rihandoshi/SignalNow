@@ -90,8 +90,22 @@ export default function AuthPage() {
                 if (error) throw error;
                 if (session?.access_token) {
                     localStorage.setItem('authToken', session.access_token);
+
+                    // Check if onboarding is complete
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('goal')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (profile && profile.goal) {
+                        router.push("/");
+                    } else {
+                        router.push("/console");
+                    }
+                } else {
+                    router.push("/console");
                 }
-                router.push("/console");
                 router.refresh();
             }
         } catch (e: any) {
