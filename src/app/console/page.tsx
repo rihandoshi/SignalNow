@@ -5,10 +5,13 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { supabase } from "@/lib/supabase-client"
 import { useRouter } from "next/navigation"
+import { LogoutButton } from "@/components/logout-button"
 
 export default function ConfigurePage() {
   const [goal, setGoal] = useState("")
   const [repositories, setRepositories] = useState("")
+  const [organizations, setOrganizations] = useState("")
+  const [people, setPeople] = useState("")
   const [isScanning, setIsScanning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [user, setUser] = useState<any>(null)
@@ -52,11 +55,16 @@ export default function ConfigurePage() {
 
       await fetch('/api/onboard', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           userId: user.id,
           github_username,
           goal,
-          repositories
+          repositories,
+          organizations,
+          people
         })
       });
     } catch (error) {
@@ -85,7 +93,10 @@ export default function ConfigurePage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-white">
+    <main className="min-h-screen flex items-center justify-center bg-white relative">
+      <div className="absolute top-5 right-8">
+        <LogoutButton />
+      </div>
       <style>{`
         @keyframes fadeOutDown {
           from {
@@ -142,15 +153,45 @@ export default function ConfigurePage() {
             </div>
 
             <div className="flex flex-col gap-3">
+              <label htmlFor="organizations" className="text-sm font-semibold text-gray-700">
+                Target Organizations
+              </label>
+              <input
+                id="organizations"
+                type="text"
+                placeholder="e.g. facebook, vercel, google"
+                value={organizations}
+                onChange={(e) => setOrganizations(e.target.value)}
+                required
+                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
               <label htmlFor="repositories" className="text-sm font-semibold text-gray-700">
-                Interesting Repositories / Topics
+                Interesting Repositories
               </label>
               <input
                 id="repositories"
                 type="text"
-                placeholder="e.g. facebook/react, vercel/next.js, rust-lang"
+                placeholder="e.g. facebook/react, vercel/next.js"
                 value={repositories}
                 onChange={(e) => setRepositories(e.target.value)}
+                required
+                className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <label htmlFor="people" className="text-sm font-semibold text-gray-700">
+                Target People (Usernames)
+              </label>
+              <input
+                id="people"
+                type="text"
+                placeholder="e.g. torvalds, shadcn, leerob"
+                value={people}
+                onChange={(e) => setPeople(e.target.value)}
                 required
                 className="px-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
               />

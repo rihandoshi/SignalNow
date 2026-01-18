@@ -12,6 +12,12 @@ import { motion } from "framer-motion";
 const authSchema = z.object({
     email: z.string().email("Please enter a valid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
+    githubUsername: z.string().optional().or(z.literal('')),
+}).refine((data) => {
+    // If it's a signup (we can't easily check isSignUp state here in pure zod without passing it, 
+    // but we can check if it's empty when we need it in the component or just make it optional and validate manually/conditionally)
+    // For simplicity, let's keep it optional in schema and validate in onSubmit if isSignUp is true.
+    return true;
 });
 
 type AuthFormData = z.infer<typeof authSchema>;
@@ -38,18 +44,30 @@ export default function AuthPage() {
 
         try {
             if (isSignUp) {
+                if (!data.githubUsername) {
+                    throw new Error("GitHub Username is required for sign up");
+                }
                 const { error } = await supabase.auth.signUp({
                     email: data.email,
                     password: data.password,
+                    options: {
+                        data: {
+                            user_name: data.githubUsername,
+                            preferred_username: data.githubUsername // Compatibility
+                        }
+                    }
                 });
                 if (error) throw error;
                 setMessage("Check your email for the confirmation link!");
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { data: { session }, error } = await supabase.auth.signInWithPassword({
                     email: data.email,
                     password: data.password,
                 });
                 if (error) throw error;
+                if (session?.access_token) {
+                    localStorage.setItem('authToken', session.access_token);
+                }
                 router.push("/console"); // Redirect to onboarding/console
                 router.refresh();
             }
@@ -144,6 +162,33 @@ export default function AuthPage() {
                             <p className="text-xs text-red-500">{errors.email.message}</p>
                         )}
                     </div>
+
+                    {isSignUp && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label
+                                    htmlFor="githubUsername"
+                                    className="text-sm font-semibold text-gray-700"
+                                >
+                                    GitHub Username
+                                </label>
+                                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium">
+                                    Required for analysis
+                                </span>
+                            </div>
+
+                            <div className="relative">
+                                <Github className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+                                <input
+                                    {...register("githubUsername")}
+                                    id="githubUsername"
+                                    type="text"
+                                    placeholder="your-github-handle"
+                                    className="w-full pl-12 pr-5 py-3.5 border-2 border-gray-200 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-200"
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <label

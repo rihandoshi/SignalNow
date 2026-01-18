@@ -13,9 +13,9 @@ export async function DELETE(request, { params }) {
             );
         }
 
-        // Await params to get the id
-        const { id } = await params;
-        const targetValue = id;
+        // Await params to get the target_value
+        const { target_value } = await params;
+        const targetValue = target_value;
 
         if (!targetValue) {
             return NextResponse.json(

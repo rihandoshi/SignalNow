@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ProfileCard } from "./components/profile-card"
 import { Loader2, Plus, Settings } from "lucide-react"
+import { LogoutButton } from "@/components/logout-button"
+import { supabase } from "@/lib/supabase-client"
 
 // Mock Targets for the demo Carousel
 const TARGET_POOLS = [
@@ -12,8 +14,6 @@ const TARGET_POOLS = [
   "leerob",   // Vercel VP
   "swyx",     // AI Engineer
 ]
-
-import { supabase } from "@/lib/supabase-client"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -26,14 +26,20 @@ export default function Dashboard() {
   // Check Supabase Session
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        // Ensure token is in localStorage for API calls
+        if (session.access_token) {
+          localStorage.setItem('authToken', session.access_token);
+        }
+
         // Use metadata username or email as identity
-        const idPromise = user.user_metadata?.user_name || user.user_metadata?.preferred_username || user.email
+        const idPromise = session.user.user_metadata?.user_name || session.user.user_metadata?.preferred_username || session.user.email
         setIdentity(idPromise)
         if (profiles.length === 0) fetchMatches(idPromise)
       } else {
-        setIdentity("")
+        // Redirect to auth if not logged in
+        router.push('/auth')
       }
     }
     checkUser()
@@ -62,11 +68,21 @@ export default function Dashboard() {
 
   const analyzeOne = async (source, target) => {
     try {
+      const token = localStorage.getItem('authToken');
       const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ sourceUser: source, targetUser: target })
       })
+
+      if (res.status === 401) {
+        router.push('/auth');
+        throw new Error("Unauthorized");
+      }
+
       if (!res.ok) throw new Error("API Failed")
       const data = await res.json()
 
@@ -147,6 +163,7 @@ export default function Dashboard() {
             <span>{identity}</span>
           </button>
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-200 to-gray-300" />
+          <LogoutButton />
         </div>
       </header>
 
@@ -198,4 +215,3 @@ export default function Dashboard() {
     </main>
   )
 }
-
