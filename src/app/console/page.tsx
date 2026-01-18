@@ -106,7 +106,7 @@ export default function ConfigurePage() {
 
           // Redirect after completion
           setTimeout(() => {
-            window.location.href = "/"
+            window.location.href = "/dashboard"
           }, 300)
           return 100
         }

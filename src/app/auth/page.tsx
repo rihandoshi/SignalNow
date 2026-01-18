@@ -80,7 +80,7 @@ export default function AuthPage() {
                     setMessage("Check your email for the confirmation link!");
                 } else {
                     // If auto-logged in, redirect
-                    router.push("/console");
+                    router.push("/dashboard");
                 }
             } else {
                 const { data: { session }, error } = await supabase.auth.signInWithPassword({

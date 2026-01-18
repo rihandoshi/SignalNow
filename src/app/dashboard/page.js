@@ -798,6 +798,12 @@ function PersonDetailModal({ person, onClose, onConnect }) {
                 </div>
               </div>
             )}
+            {!person.icebreaker && person.decision === 'ENGAGE' && (
+              <div className="bg-gray-100 rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col items-center justify-center text-center opacity-75">
+                <h3 className="text-gray-900 font-bold mb-2">Drafting Message...</h3>
+                <p className="text-gray-500 text-sm">Our Ghostwriter is analyzing the best way to reach out. Please try refreshing in a moment.</p>
+              </div>
+            )}
 
             {/* REASONING */}
             <div className="bg-gray-100 rounded-2xl p-6">

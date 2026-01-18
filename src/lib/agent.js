@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const MODEL_NAME = "gemini-3-flash-preview";
+const MODEL_NAME = "gemini-2.5-flash";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -281,7 +281,41 @@ async function runStrategist(vibe, myActivity, myGoal, previousState, sourceCont
     return safeJsonParse(strategistResult.text);
 }
 
-// ... runGhostwriter ...
+async function runGhostwriter(strategy) {
+    const ghostwriterPrompt = `
+        You are Agent 3: The Ghostwriter.
+
+        You write short, casual, human DMs between developers.
+
+        INPUT:
+        ${JSON.stringify(strategy, null, 2)}
+
+        RULES:
+        - Max 2 sentences
+        - No corporate language
+        - No buzzwords
+        - No emojis
+        - No greetings like "Hope you're doing well"
+        - Can reference something specific they have worked on or shown interest in or just some bridge in general.
+        - Must sound like a real person, not a pitch
+
+        STYLE:
+        Casual, curious, low-pressure.
+        Like a smart dev reaching out to another smart dev.
+
+        OUTPUT:
+        Plain text only.
+    `;
+
+    const result = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: [{
+            role: "user",
+            parts: [{ text: ghostwriterPrompt }]
+        }]
+    });
+    return result.text.trim();
+}
 
 async function decideStatus(strategy, previousState) {
     // ... same logic ...
@@ -334,26 +368,31 @@ export async function analyzeProfile(userId, targetUser, source = "Direct", cont
     const previousState = await fetchTrackedProfile(userId, targetUser);
 
     if (previousState && previousState.last_activity_hash === currentActivityHash && isCacheValid(previousState.last_checked_at)) {
-        console.log(`✓ No activity change detected. Returning cached result.`);
-        return {
-            decision: "NO_CHANGE",
-            readiness_score: previousState.last_readiness_score,
-            readinessLevel: previousState.last_readiness_level || "medium",
-            reasoning: previousState.last_reason,
-            bridge: previousState.last_bridge,
-            focus: previousState.last_focus
-                ? (typeof previousState.last_focus === 'string' ? safeJsonParse(previousState.last_focus) : previousState.last_focus)
-                : [],
-            icebreaker: previousState.last_icebreaker || null,
-            nextStep: previousState.last_next_step || "No changes detected. Monitoring continues.",
-            trace: previousState.last_trace || { // Load the full trace from cache
-                cached: true,
-                cached_at: previousState.last_checked_at,
-                researcher: "Trace data not available for this cached result.",
-                strategist: "Trace data not available for this cached result.",
-                ghostwriter: "Trace data not available for this cached result."
-            }
-        };
+        // BREAK FIX: If we engaged but have no message (due to previous bug), regenerate it.
+        if (previousState.last_decision === 'ENGAGE' && !previousState.last_icebreaker) {
+            console.log('⚠️ Cache hit but missing icebreaker for ENGAGE decision. Re-running analysis to generate message.');
+        } else {
+            console.log(`✓ No activity change detected. Returning cached result.`);
+            return {
+                decision: "NO_CHANGE",
+                readiness_score: previousState.last_readiness_score,
+                readinessLevel: previousState.last_readiness_level || "medium",
+                reasoning: previousState.last_reason,
+                bridge: previousState.last_bridge,
+                focus: previousState.last_focus
+                    ? (typeof previousState.last_focus === 'string' ? safeJsonParse(previousState.last_focus) : previousState.last_focus)
+                    : [],
+                icebreaker: previousState.last_icebreaker || null,
+                nextStep: previousState.last_next_step || "No changes detected. Monitoring continues.",
+                trace: previousState.last_trace || { // Load the full trace from cache
+                    cached: true,
+                    cached_at: previousState.last_checked_at,
+                    researcher: "Trace data not available for this cached result.",
+                    strategist: "Trace data not available for this cached result.",
+                    ghostwriter: "Trace data not available for this cached result."
+                }
+            };
+        }
     }
 
     const targetActivity = targetEvents.slice(0, 15).map(e => ({
@@ -405,10 +444,20 @@ export async function analyzeProfile(userId, targetUser, source = "Direct", cont
     let ghostwriterTrace = "Decision made based on readiness score.";
 
     const status = decideStatus(strategy, previousState);
+    console.log(`DECISION: ${status} (Score: ${strategy.readiness_score})`);
 
     if (status === "ENGAGE") {
-        icebreaker = await runGhostwriter(strategy);
-        ghostwriterTrace = "Optimizing message for human response... Ready.";
+        console.log("Status is ENGAGE. Running Ghostwriter...");
+        try {
+            icebreaker = await runGhostwriter(strategy);
+            console.log("Ghostwriter returned:", icebreaker ? icebreaker.substring(0, 50) + "..." : "NULL/EMPTY");
+            ghostwriterTrace = "Optimizing message for human response... Ready.";
+        } catch (err) {
+            console.error("Ghostwriter failed:", err);
+            ghostwriterTrace = "Ghostwriter failed: " + err.message;
+        }
+    } else {
+        console.log("Status is NOT ENGAGE. Skipping Ghostwriter.");
     }
 
     const analysisResult = {
@@ -430,6 +479,8 @@ export async function analyzeProfile(userId, targetUser, source = "Direct", cont
             ghostwriter: ghostwriterTrace
         }
     };
+
+    console.log("Updating DB with icebreaker:", icebreaker ? "OFFSET" : "NULL");
 
     await updateTrackedProfile(userId, targetUser, {
         last_activity_hash: currentActivityHash,
