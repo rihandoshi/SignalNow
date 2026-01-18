@@ -5,13 +5,12 @@ import crypto from "crypto";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL_NAME = "gemini-2.5-flash-lite";
 
-const myGoal = "Find active developers working on open-source web development tools to collaborate with.";
-
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
     process.env.SUPABASE_SERVICE_KEY || ""
 );
 
+// User's goal is passed in directly from the request
 const CACHE_TTL_MINUTES = 30;
 
 function generateActivityHash(events) {
@@ -22,12 +21,12 @@ function generateActivityHash(events) {
     return crypto.createHash("sha256").update(activityString).digest("hex");
 }
 
-async function fetchTrackedProfile(sourceUser, targetUser) {
+async function fetchTrackedProfile(userId, targetUser) {
     try {
         const { data, error } = await supabase
             .from("tracked_profiles")
             .select("*")
-            .eq("source_username", sourceUser)
+            .eq("user_id", userId)
             .eq("target_username", targetUser)
             .single();
 
@@ -39,18 +38,18 @@ async function fetchTrackedProfile(sourceUser, targetUser) {
     }
 }
 
-async function updateTrackedProfile(sourceUser, targetUser, data) {
+async function updateTrackedProfile(userId, targetUser, data) {
     try {
         const { error } = await supabase
             .from("tracked_profiles")
             .upsert(
                 {
-                    source_username: sourceUser,
+                    user_id: userId,
                     target_username: targetUser,
                     ...data,
                     last_checked_at: new Date().toISOString()
                 },
-                { onConflict: ["source_username", "target_username"] }
+                { onConflict: ["user_id", "target_username"] }
             );
         if (error) throw error;
     } catch (error) {
@@ -58,12 +57,12 @@ async function updateTrackedProfile(sourceUser, targetUser, data) {
     }
 }
 
-async function insertAnalysisHistory(trackedProfileId, analysisData) {
+async function insertAnalysisHistory(userId, targetUser, analysisData) {
     try {
         const { error } = await supabase
             .from("analysis_history")
             .insert({
-                tracked_profile_id: trackedProfileId,
+                user_id: userId,
                 timestamp: new Date().toISOString(),
                 readiness_score: analysisData.readiness_score,
                 decision: analysisData.decision,
@@ -113,6 +112,22 @@ function getRelativeTime(timestamp) {
     if (minutes < 60) return `${minutes} minutes ago`;
     if (minutes < 1440) return `${Math.floor(minutes / 60)} hours ago`;
     return `${Math.floor(minutes / 1440)} days ago`;
+}
+
+async function getUserGitHubUsername(userId) {
+    try {
+        const { data, error } = await supabase
+            .from("profiles")
+            .select("github_username")
+            .eq("id", userId)
+            .single();
+
+        if (error) throw error;
+        return data?.github_username || null;
+    } catch (error) {
+        console.error("Failed to fetch GitHub username:", error);
+        return null;
+    }
 }
 
 async function runResearcher(targetActivity) {
@@ -169,7 +184,7 @@ async function runResearcher(targetActivity) {
     return safeJsonParse(researcherResult.text);
 }
 
-async function runStrategist(vibe, myActivity, previousState) {
+async function runStrategist(vibe, myActivity, myGoal, previousState) {
     const strategistPrompt = `
         You are Agent 2: The Strategist.
 
@@ -300,24 +315,30 @@ function decideStatus(strategy, previousState) {
     return "IGNORE";
 }
 
-export async function analyzeProfile(sourceUser, targetUser) {
-    console.log(`⚡ Agentic Pipeline: Connecting ${sourceUser} -> ${targetUser}`);
+export async function analyzeProfile(userId, targetUser, myGoal = "Find active developers working on open-source projects to collaborate with.") {
+    // Fetch the user's GitHub username from profiles table
+    const sourceUserGitHub = await getUserGitHubUsername(userId);
+    if (!sourceUserGitHub) {
+        throw new Error("User GitHub username not found in profile");
+    }
+
+    console.log(`⚡ Agentic Pipeline: Connecting ${sourceUserGitHub} -> ${targetUser}`);
 
     const [targetEvents, myEvents] = await Promise.all([
         fetchGitHubEvents(targetUser),
-        fetchGitHubEvents(sourceUser)
+        fetchGitHubEvents(sourceUserGitHub)
     ]);
 
     const currentActivityHash = generateActivityHash(targetEvents);
-    const previousState = await fetchTrackedProfile(sourceUser, targetUser);
+    const previousState = await fetchTrackedProfile(userId, targetUser);
 
     if (previousState && previousState.last_activity_hash === currentActivityHash && isCacheValid(previousState.last_checked_at)) {
         console.log(`✓ No activity change detected. Returning cached result.`);
         return {
-            status: "NO_CHANGE",
+            decision: "NO_CHANGE",
             readiness_score: previousState.last_readiness_score,
             readinessLevel: previousState.last_readiness_level || "medium",
-            reason: previousState.last_reason,
+            reasoning: previousState.last_reason,
             bridge: previousState.last_bridge,
             focus: previousState.last_focus ? JSON.parse(previousState.last_focus) : [],
             icebreaker: null,
@@ -350,9 +371,9 @@ export async function analyzeProfile(sourceUser, targetUser) {
     let vibe;
     if (targetActivity.length === 0) {
         return {
-            status: "WAIT",
+            decision: "WAIT",
             readiness_score: 0,
-            reason: "No recent activity detected",
+            reasoning: "No recent activity detected",
             bridge: null,
             focus: [],
             icebreaker: null,
@@ -365,9 +386,9 @@ export async function analyzeProfile(sourceUser, targetUser) {
 
     if (!vibe || vibe.activity_pattern === "idle") {
         return {
-            status: "WAIT",
+            decision: "WAIT",
             readiness_score: 0,
-            reason: "No recent activity detected",
+            reasoning: "No recent activity detected",
             bridge: null,
             focus: vibe?.primary_technologies || [],
             icebreaker: null,
@@ -376,7 +397,7 @@ export async function analyzeProfile(sourceUser, targetUser) {
         };
     }
 
-    const strategy = await runStrategist(vibe, myActivity, previousState);
+    const strategy = await runStrategist(vibe, myActivity, myGoal, previousState);
     let icebreaker = null;
     let ghostwriterTrace = "Decision made based on readiness score.";
 
@@ -388,10 +409,10 @@ export async function analyzeProfile(sourceUser, targetUser) {
     }
 
     const analysisResult = {
-        status: status,
+        decision: status,
         readiness_score: strategy.readiness_score,
         readinessLevel: strategy.readiness_level || "medium",
-        reason: strategy.reasoning,
+        reasoning: strategy.reasoning,
         bridge: strategy.bridge,
         focus: vibe.primary_technologies || [],
         icebreaker: icebreaker,
@@ -407,7 +428,7 @@ export async function analyzeProfile(sourceUser, targetUser) {
         }
     };
 
-    await updateTrackedProfile(sourceUser, targetUser, {
+    await updateTrackedProfile(userId, targetUser, {
         last_activity_hash: currentActivityHash,
         last_readiness_score: strategy.readiness_score,
         last_readiness_level: strategy.readiness_level,
@@ -417,16 +438,13 @@ export async function analyzeProfile(sourceUser, targetUser) {
         last_focus: JSON.stringify(vibe.primary_technologies || [])
     });
 
-    const trackedProfile = await fetchTrackedProfile(sourceUser, targetUser);
-    if (trackedProfile) {
-        await insertAnalysisHistory(trackedProfile.id, {
-            readiness_score: strategy.readiness_score,
-            decision: status,
-            reasoning: strategy.reasoning,
-            bridge: strategy.bridge,
-            trace: analysisResult.trace
-        });
-    }
+    await insertAnalysisHistory(userId, targetUser, {
+        readiness_score: strategy.readiness_score,
+        decision: status,
+        reasoning: strategy.reasoning,
+        bridge: strategy.bridge,
+        trace: analysisResult.trace
+    });
 
     return analysisResult;
 }
